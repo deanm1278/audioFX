@@ -18,10 +18,10 @@ public:
 	AudioFX( void );
 	bool begin( void );
 	void processBuffer( void );
-	void setCallback( void (*fn)(int32_t *) );
+	void setCallback( void (*fn)(int32_t *, int32_t *) );
 
 private:
-	void (*audioCallback)(int32_t *);
+	void (*audioCallback)(int32_t *, int32_t *);
 };
 
 

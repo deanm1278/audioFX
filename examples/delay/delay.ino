@@ -1,9 +1,8 @@
 /**************************************
  * This example shows how to do a multi-tap delay.
  * A big circular buffer in L2 SRAM is used.
- * 
- * Non-blocking Buffer fetches via MDMA (memory-to-memory DMA)
- * as well as blocking buffer fetches through the core are used.
+ *
+ * Non-blocking Buffer fetches via MDMA (memory-to-memory DMA) are used.
  */
 
 #include "audioFX.h"
@@ -30,14 +29,20 @@ int32_t tap0Left[AUDIO_BUFSIZE],
 int32_t tap1Left[AUDIO_BUFSIZE],
     tap1Right[AUDIO_BUFSIZE];
 
+volatile bool tap0Done, tap1Done;
+
 void audioLoop(int32_t *left, int32_t *right)
 {
-  /* Add the fetched blocks from the big L2 buffer. 
+
+  //make sure we have all the necessary data
+  while(!tap0Done || !tap1Done);
+  
+   /* Add the fetched blocks from the big L2 buffer.
    * They will fade a little each time.
    */
   for(int i=0; i<AUDIO_BUFSIZE; i++){
-    left[i] = left[i] +  tap1Left[i] * .3 + tap0Left[i] * .3;
-    right[i] = right[i] + tap1Right[i] * .3 + tap0Right[i] * .3;
+    left[i] = left[i] * .5 +  tap1Left[i] * .3 + tap0Left[i] * .3;
+    right[i] = left[i];
   }
 
   /* push the processed buffer to the back of the
@@ -51,12 +56,14 @@ void setup() {
   fx.begin();
   fx.setCallback(audioLoop);
   newBufferReceived = false;
+  tap0Done = true;
+  tap1Done = true;
 }
 
 void loop() {
   //process our buffer if one is available
   fx.processBuffer();
-  
+
   if(newBufferReceived){
     /* A new buffer has just been processed!
      *  Lets fetch the buffers the audioLoop will use for the next
@@ -66,13 +73,8 @@ void loop() {
      */
     if(buf.full()){
       /* this is a non-blocking fetch. Grab the last tap via DMA */
-      buf.pop(tap1Left, tap1Right);
-
-      /* since our MDMA channels are being used by the previous fetch,
-       *  lets fetch the other tap through the core since it's idle.
-       *  This is taken from the middle of the buffer (tail - 40 blocks)
-       */
-      buf.peekCore(tap0Left, tap0Right, 40);
+      buf.pop(tap1Left, tap1Right, &tap1Done);
+      buf.peek(tap0Left, tap0Right, 40, &tap0Done);
     }
     newBufferReceived = false;
   }

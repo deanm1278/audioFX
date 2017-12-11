@@ -19,10 +19,10 @@ public:
 	void push(int32_t *leftBlock, int32_t *rightBlock);
 
 	void pop(int32_t *leftBlock, int32_t *rightBlock);
-	void pop(int32_t *leftBlock, int32_t *rightBlock, void (*cb)(void));
+	void pop(int32_t *leftBlock, int32_t *rightBlock, volatile bool *done);
 
 	void peek(int32_t *leftBlock, int32_t *rightBlock, uint32_t offset=0);
-	void peek(int32_t *leftBlock, int32_t *rightBlock, uint32_t offset, void (*cb)(void));
+	void peek(int32_t *leftBlock, int32_t *rightBlock, uint32_t offset, volatile bool *done);
 	void peekCore(int32_t *leftBlock, int32_t *rightBlock, uint32_t offset=0);
 
 	bool full( void ) { return count == cap; }

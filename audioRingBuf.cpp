@@ -45,9 +45,9 @@ void AudioRingBuf::pop(int32_t *leftBlock, int32_t *rightBlock)
 	pop(leftBlock, rightBlock, NULL);
 }
 
-void AudioRingBuf::pop(int32_t *leftBlock, int32_t *rightBlock, void (*cb)(void))
+void AudioRingBuf::pop(int32_t *leftBlock, int32_t *rightBlock, volatile bool *done)
 {
-	_fx->deinterleave(leftBlock, rightBlock, tail, cb);
+	_fx->deinterleave(leftBlock, rightBlock, tail, NULL, done);
 
 	tail += (AUDIO_BUFSIZE << 1);
 	count--;
@@ -58,9 +58,17 @@ void AudioRingBuf::peek(int32_t *leftBlock, int32_t *rightBlock, uint32_t offset
 	peek(leftBlock, rightBlock, offset, NULL);
 }
 
-void AudioRingBuf::peek(int32_t *leftBlock, int32_t *rightBlock, uint32_t offset, void (*cb)(void))
+void AudioRingBuf::peek(int32_t *leftBlock, int32_t *rightBlock, uint32_t offset, volatile bool *done)
 {
-	_fx->deinterleave(leftBlock, rightBlock, tail - (AUDIO_BUFSIZE << 1) * offset, cb);
+	int32_t *ptr;
+	uint32_t distFromEnd = (end - tail) / (AUDIO_BUFSIZE << 1);
+
+	if(offset >= distFromEnd) {
+		ptr = (int32_t *)startAddr + (AUDIO_BUFSIZE << 1) * (offset - distFromEnd);
+	}
+	else ptr = tail + (AUDIO_BUFSIZE << 1) * offset;
+
+	_fx->deinterleave(leftBlock, rightBlock, ptr, NULL, done);
 }
 
 void AudioRingBuf::peekCore(int32_t *leftBlock, int32_t *rightBlock, uint32_t offset){
@@ -68,7 +76,7 @@ void AudioRingBuf::peekCore(int32_t *leftBlock, int32_t *rightBlock, uint32_t of
 	int32_t *ptr;
 	uint32_t distFromEnd = (end - tail) / (AUDIO_BUFSIZE << 1);
 
-	if(offset > distFromEnd) {
+	if(offset >= distFromEnd) {
 		ptr = (int32_t *)startAddr + (AUDIO_BUFSIZE << 1) * (offset - distFromEnd);
 	}
 	else ptr = tail + (AUDIO_BUFSIZE << 1) * offset;

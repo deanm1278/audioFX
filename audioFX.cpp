@@ -9,7 +9,7 @@
 #include "audioFX.h"
 #include <math.h>
 
-#define FS (48500 * 2)
+#define FS (VARIANT_SCLK0/1024) //around 48khz
 #define BCLK (32 * FS)
 #define WLEN 24
 
@@ -17,6 +17,8 @@
 #define FS_PIN 5
 #define AD0_PIN 9
 #define BD0_PIN 6
+
+#define MCLK_PIN 2
 
 struct audioBuf {
 	int32_t data[AUDIO_BUFSIZE << 1];
@@ -30,20 +32,8 @@ static int32_t procRight[AUDIO_BUFSIZE];
 
 static volatile bool bufReady;
 
-void (*AudioFX::mdmaCallbacks[NUM_MDMA_CHANNELS])(void) = { NULL, NULL, NULL };
-
-uint8_t AudioFX::getFreeMdma( void )
-{
-	for(int i=SYS_MDMA0_SRC; i<=SYS_MDMA2_SRC; i+=2){
-		if (DMA[i]->STAT.bit.RUN == 0 &&
-				DMA[i + 1]->STAT.bit.RUN == 0){
-			DMA[i]->CFG.bit.EN = DMA_CFG_DISABLE;
-			DMA[i + 1]->CFG.bit.EN = DMA_CFG_DISABLE;
-			return i;
-		}
-	}
-	return 0;
-}
+Timer AudioFX::_tmr(MCLK_PIN);
+MdmaArbiter AudioFX::_arb;
 
 AudioFX::AudioFX( void ) : I2S(SPORT0, BCLK_PIN, FS_PIN, AD0_PIN, BD0_PIN)
 {
@@ -56,6 +46,9 @@ AudioFX::AudioFX( void ) : I2S(SPORT0, BCLK_PIN, FS_PIN, AD0_PIN, BD0_PIN)
 
 bool AudioFX::begin( void )
 {
+	//begin the MCLK
+	_tmr.begin(VARIANT_SCLK0/8);
+
 	//begin i2s
 	I2S::begin(BCLK, FS, WLEN);
 
@@ -85,19 +78,7 @@ bool AudioFX::begin( void )
 	DMA[SPORT0_A_DMA]->CFG.bit.PSIZE = DMA_CFG_PSIZE_4_BYTES;
 	DMA[SPORT0_A_DMA]->CFG.bit.INT = DMA_CFG_INT_PERIPHERAL;
 
-	//enable mdma channels
-	for(int i=SYS_MDMA0_SRC; i<=SYS_MDMA2_SRC; i+=2){
-		DMA[i]->CFG.bit.MSIZE = DMA_MSIZE_4_BYTES;
-		DMA[i]->CFG.bit.PSIZE = DMA_CFG_PSIZE_4_BYTES;
-		DMA[i]->CFG.bit.WNR = DMA_CFG_WNR_READ_FROM_MEM;
-		DMA[i]->XCNT.reg = AUDIO_BUFSIZE;
-
-		DMA[i + 1]->CFG.bit.MSIZE = DMA_MSIZE_4_BYTES;
-		DMA[i + 1]->CFG.bit.PSIZE = DMA_CFG_PSIZE_4_BYTES;
-		DMA[i + 1]->CFG.bit.WNR = DMA_CFG_WNR_WRITE_TO_MEM;
-		DMA[i + 1]->CFG.bit.INT = DMA_CFG_INT_X_COUNT;
-		DMA[i + 1]->XCNT.reg = AUDIO_BUFSIZE;
-	}
+	_arb.begin();
 
 	DMA[SPORT0_A_DMA]->CFG.bit.EN = DMA_CFG_ENABLE;
 	DMA[SPORT0_B_DMA]->CFG.bit.EN = DMA_CFG_ENABLE;
@@ -121,8 +102,12 @@ void AudioFX::processBuffer( void )
 				procRight[sampNum] = intermediateR / (1 << 8);
 			}
 			audioCallback(procLeft, procRight);
-			//re-interleave the buffers
-			interleave(procBuf->data, procLeft, procRight);
+			//re-interleave the buffers using the core now that we're done w/ our processing algo
+			for(int i=0; i<(AUDIO_BUFSIZE << 1); i+=2){
+				int sampNum = i >> 1;
+				procBuf->data[i] = procLeft[sampNum];
+				procBuf->data[i+1] = procRight[sampNum];
+			}
 		}
 		bufReady = false;
 	}
@@ -131,59 +116,19 @@ void AudioFX::processBuffer( void )
 
 void AudioFX::interleave(int32_t *dest, int32_t * left, int32_t *right)
 {
-	uint8_t chL = 0, chR = 0;
-	while(chL == 0) chL = getFreeMdma(); //find a free mdma channel
-
-	//write the left channel
-	DMA[chL]->ADDRSTART.reg = (uint32_t)left;
-	DMA[chL]->XMOD.reg = sizeof(int32_t);
-	DMA[chL + 1]->ADDRSTART.reg = (uint32_t)dest;
-	DMA[chL + 1]->XMOD.reg = sizeof(int32_t) << 1;
-
-	DMA[chL]->CFG.bit.EN = DMA_CFG_ENABLE;
-	DMA[chL + 1]->CFG.bit.EN = DMA_CFG_ENABLE;
-
-	while(chR == 0) chR = getFreeMdma(); //find another free channel
-
-	//re-interleave the right channel
-	DMA[chR]->ADDRSTART.reg = (uint32_t)right;
-	DMA[chR]->XMOD.reg = sizeof(int32_t);
-	DMA[chR + 1]->ADDRSTART.reg = (uint32_t)(dest + 1);
-	DMA[chR + 1]->XMOD.reg = sizeof(int32_t) << 1;
-
-	DMA[chR]->CFG.bit.EN = DMA_CFG_ENABLE;
-	DMA[chR + 1]->CFG.bit.EN = DMA_CFG_ENABLE;
+	_arb.queue(dest, left, sizeof(int32_t) * 2, sizeof(int32_t));
+	_arb.queue(dest + 1, right, sizeof(int32_t) * 2, sizeof(int32_t));
 }
 
-void AudioFX::deinterleave(int32_t * left, int32_t *right, int32_t *src, void (*cb)(void))
+void AudioFX::deinterleave(int32_t * left, int32_t *right, int32_t *src, void (*cb)(void), volatile bool *done)
 {
-	uint8_t chL = 0, chR = 0;
-	while(chL == 0) chL = getFreeMdma(); //find a free mdma channel
+	_arb.queue(left, src, sizeof(int32_t), sizeof(int32_t) * 2);
+	_arb.queue(right, src + 1, sizeof(int32_t), sizeof(int32_t) * 2, cb, done);
+}
 
-	//write the left channel
-	DMA[chL]->ADDRSTART.reg = (uint32_t)src;
-	DMA[chL]->XMOD.reg = sizeof(int32_t) << 1;
-	DMA[chL + 1]->ADDRSTART.reg = (uint32_t)left;
-	DMA[chL + 1]->XMOD.reg = sizeof(int32_t);
-
-	DMA[chL]->CFG.bit.EN = DMA_CFG_ENABLE;
-	DMA[chL + 1]->CFG.bit.EN = DMA_CFG_ENABLE;
-
-	while(chR == 0) chR = getFreeMdma(); //find another free channel
-
-	DMA[chR]->ADDRSTART.reg = (uint32_t)(src + 1);
-	DMA[chR]->XMOD.reg = sizeof(int32_t) << 1;
-	DMA[chR + 1]->ADDRSTART.reg = (uint32_t)right;
-	DMA[chR + 1]->XMOD.reg = sizeof(int32_t);
-
-	DMA[chR]->CFG.bit.EN = DMA_CFG_ENABLE;
-	DMA[chR + 1]->CFG.bit.EN = DMA_CFG_ENABLE;
-
-	//TODO: clean this up
-	if(cb != NULL) enableIRQ((chR - SYS_MDMA0_SRC) + 55);
-	else disableIRQ((chR - SYS_MDMA0_SRC) + 55);
-
-	mdmaCallbacks[(SYS_MDMA0_SRC - chR) >> 1] = cb;
+void AudioFX::deinterleave(int32_t * left, int32_t *right, int32_t *src, volatile bool *done)
+{
+	deinterleave(left, right, src, NULL, done);
 }
 
 void AudioFX::setCallback( void (*fn)(int32_t *, int32_t *) )
@@ -218,30 +163,6 @@ int SPORT0_A_DMA_Handler (int IQR_NUMBER )
 
 	bufReady = true;
 
-	return IQR_NUMBER;
-}
-
-int SYS_MDMA0_DST_Handler (int IQR_NUMBER )
-{
-	DMA[SYS_MDMA0_DST]->CFG.bit.EN = DMA_CFG_DISABLE;
-	disableIRQ(55);
-	if(AudioFX::mdmaCallbacks[0] != NULL) AudioFX::mdmaCallbacks[0]();
-	return IQR_NUMBER;
-}
-
-int SYS_MDMA1_DST_Handler (int IQR_NUMBER )
-{
-	DMA[SYS_MDMA1_DST]->CFG.bit.EN = DMA_CFG_DISABLE;
-	disableIRQ(57);
-	if(AudioFX::mdmaCallbacks[1] != NULL) AudioFX::mdmaCallbacks[1]();
-	return IQR_NUMBER;
-}
-
-int SYS_MDMA2_DST_Handler (int IQR_NUMBER )
-{
-	DMA[SYS_MDMA2_DST]->CFG.bit.EN = DMA_CFG_DISABLE;
-	disableIRQ(59);
-	if(AudioFX::mdmaCallbacks[2] != NULL) AudioFX::mdmaCallbacks[2]();
 	return IQR_NUMBER;
 }
 

@@ -71,6 +71,13 @@ void AudioRingBuf::peek(int32_t *leftBlock, int32_t *rightBlock, uint32_t offset
 	_fx->deinterleave(leftBlock, rightBlock, ptr, NULL, done);
 }
 
+void AudioRingBuf::discard( void ){
+	//toss out the last sample
+	tail += (AUDIO_BUFSIZE << 1);
+	count--;
+	if(tail == end) tail = (int32_t *)startAddr;
+}
+
 void AudioRingBuf::peekCore(int32_t *leftBlock, int32_t *rightBlock, uint32_t offset){
 
 	int32_t *ptr;

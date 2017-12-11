@@ -38,6 +38,7 @@ bool MdmaArbiter::begin( void ) {
 		DMA[i + 1]->CFG.bit.INT = DMA_CFG_INT_X_COUNT;
 		DMA[i + 1]->XCNT.reg = AUDIO_BUFSIZE;
 	}
+	return true;
 }
 
 bool MdmaArbiter::queue(void *dst, void *src, uint32_t dstMod, uint32_t srcMod, void (*cb)(void), volatile bool *done)

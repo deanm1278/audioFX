@@ -94,19 +94,21 @@ void AudioFX::processBuffer( void )
 		if(audioCallback != NULL){
 			//convert 24 bit 2s complement to int32_t
 			//TODO: convert this to a zero overhead loop?
-			for(int i=0; i< (AUDIO_BUFSIZE << 1); i+=2){
-				int sampNum = i >> 1;
-				int32_t intermediateL = (procBuf->data[i] << 8);
-				int32_t intermediateR = (procBuf->data[i + 1] << 8);
-				procLeft[sampNum] = intermediateL / (1 << 8);
-				procRight[sampNum] = intermediateR / (1 << 8);
+			int32_t *d = procBuf->data;
+			int32_t *l = procLeft;
+			int32_t *r = procRight;
+			for(int i=0; i<AUDIO_BUFSIZE; i++){
+				*l++ = (*d++ << 8) / (1 << 8);
+				*r++ = (*d++ << 8) / (1 << 8);
 			}
 			audioCallback(procLeft, procRight);
 			//re-interleave the buffers using the core now that we're done w/ our processing algo
-			for(int i=0; i<(AUDIO_BUFSIZE << 1); i+=2){
-				int sampNum = i >> 1;
-				procBuf->data[i] = procLeft[sampNum];
-				procBuf->data[i+1] = procRight[sampNum];
+			d = procBuf->data;
+			l = procLeft;
+			r = procRight;
+			for(int i=0; i<AUDIO_BUFSIZE; i++){
+				*d++ = *l++;
+				*d++ = *r++;
 			}
 		}
 		bufReady = false;

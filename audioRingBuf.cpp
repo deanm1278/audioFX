@@ -90,8 +90,10 @@ void AudioRingBuf::peekCore(int32_t *leftBlock, int32_t *rightBlock, uint32_t of
 
 	//if(offset > distFromEnd) asm volatile("EMUEXCPT;");
 
+	int32_t *l = leftBlock;
+	int32_t *r = rightBlock;
 	for(int i=0; i<AUDIO_BUFSIZE; i++){
-		leftBlock[i] = *ptr++;
-		rightBlock[i] = *ptr++;
+		*l++ = *ptr++;
+		*r++ = *ptr++;
 	}
 }

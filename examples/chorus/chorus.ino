@@ -9,7 +9,7 @@
 AudioFX fx;
 
 /* the maximum number of samples the chorus voice will be delayed */
-#define MAX_DELAY 1024 
+#define MAX_DELAY 1024
 
 /* how many samples will be in our LFO */
 #define LFO_SAMPLES 256
@@ -25,14 +25,14 @@ AudioFX fx;
 /* the multiplier for the dry sample */
 #define DRY_MIX .6
 
-AudioRingBuf buf(8, &fx);
+AudioRingBuf buf((MAX_DELAY/AUDIO_BUFSIZE) + 1, &fx);
 bool newBufferReceived;
 
 int32_t tap0Left[AUDIO_BUFSIZE*2],
     tap0Right[AUDIO_BUFSIZE*2];
 
 int32_t dryLeft[AUDIO_BUFSIZE],
-    dryRight[AUDIO_BUFSIZE];
+	dryRight[AUDIO_BUFSIZE];
 
 /* this will be our LFO lookup table */
 uint16_t sine[LFO_SAMPLES];
@@ -43,27 +43,23 @@ int lfoIndex;
 int blockIndex;
 int subIndex;
 
-void audioLoop(int32_t *left, int32_t *right)
+void audioLoop(q31 *left, q31 *right)
 {
-  //only dry samples get pushed to the memory buffer
+  //copy the dry samples to the end of our delay buffer since they're the most recent
   memcpy(dryLeft, left, AUDIO_BUFSIZE * sizeof(int32_t));
   memcpy(dryRight, right, AUDIO_BUFSIZE * sizeof(int32_t));
+
   buf.push(dryLeft, dryRight);
 
+  if(blockIndex == 0){
+	  memcpy(tap0Left + AUDIO_BUFSIZE, left, AUDIO_BUFSIZE * sizeof(int32_t));
+	  memcpy(tap0Right + AUDIO_BUFSIZE, right, AUDIO_BUFSIZE * sizeof(int32_t));
+  }
+
+  subIndex = AUDIO_BUFSIZE - sine[lfoIndex]%AUDIO_BUFSIZE;
   for(int i=0; i<AUDIO_BUFSIZE; i++){
-    subIndex = sine[lfoIndex] + i;
-    if(subIndex >= AUDIO_BUFSIZE){
-      /* if the sample we need is in a block fetched from memory,
-       *  find the index of the sample in the fetched block.
-       */
-      subIndex = subIndex - blockIndex*AUDIO_BUFSIZE;
-      left[i] = left[i] * DRY_MIX + tap0Left[subIndex] * DEPTH;
-      right[i] = right[i] * DRY_MIX + tap0Right[subIndex] * DEPTH;
-    }
-    else{
-      left[i] = left[i] * DRY_MIX + left[subIndex] * DEPTH;
-      right[i] = right[i] * DRY_MIX + right[subIndex] * DEPTH;
-    }
+      left[i] = FRACMUL(left[i], DRY_MIX) + FRACMUL(tap0Left[subIndex + i], DEPTH);
+      right[i] = FRACMUL(right[i], DRY_MIX) + FRACMUL(tap0Right[subIndex + i], DEPTH);
   }
 
   loopCounter++;
@@ -109,8 +105,9 @@ void loop() {
        *  that would be blocks 1 and 2 since each block contains
        *  128 samples.
        */
-      buf.peekCore(tap0Left, tap0Right, blockIndex);
-      buf.peekCore(tap0Left + AUDIO_BUFSIZE, tap0Right + AUDIO_BUFSIZE, blockIndex + 1);
+      buf.peekHeadCore(tap0Left, tap0Right, blockIndex);
+      if(blockIndex > 0)
+    	  buf.peekHeadCore(tap0Left + AUDIO_BUFSIZE, tap0Right + AUDIO_BUFSIZE, blockIndex - 1);
 
       /* remove the last block in the buffer to make room for new blocks
        *  once we have the samples we need.

@@ -24,11 +24,13 @@ public:
 	void peek(int32_t *leftBlock, int32_t *rightBlock, uint32_t offset=0);
 	void peek(int32_t *leftBlock, int32_t *rightBlock, uint32_t offset, volatile bool *done);
 	void peekCore(int32_t *leftBlock, int32_t *rightBlock, uint32_t offset=0);
+	void peekHeadCore(int32_t *leftBlock, int32_t *rightBlock, uint32_t offset=0);
 
 	void discard( void );
 
 	bool full( void ) { return count == cap; }
 	bool empty( void ) { return count == 0; }
+	uint32_t getCount( void ) { return count; }
 
 protected:
 	uint32_t startAddr, count, cap;

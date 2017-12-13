@@ -97,3 +97,24 @@ void AudioRingBuf::peekCore(int32_t *leftBlock, int32_t *rightBlock, uint32_t of
 		*r++ = *ptr++;
 	}
 }
+
+void AudioRingBuf::peekHeadCore(int32_t *leftBlock, int32_t *rightBlock, uint32_t offset){
+
+	int32_t *ptr;
+	offset = offset + 1;
+	uint32_t distFromStart = ((uint32_t)head - startAddr) / (AUDIO_BUFSIZE << 3);
+
+	if(offset > distFromStart) {
+		ptr = end - (AUDIO_BUFSIZE << 1) * (offset - distFromStart);
+	}
+	else ptr = head - (AUDIO_BUFSIZE << 1) * offset;
+
+	//if(offset > distFromEnd) asm volatile("EMUEXCPT;");
+
+	int32_t *l = leftBlock;
+	int32_t *r = rightBlock;
+	for(int i=0; i<AUDIO_BUFSIZE; i++){
+		*l++ = *ptr++;
+		*r++ = *ptr++;
+	}
+}

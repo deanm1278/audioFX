@@ -9,7 +9,9 @@
 #include "audioFX.h"
 #include <math.h>
 
-#define FS (VARIANT_SCLK0/1024) //around 48khz
+//TODO: fix this once we can get a more accurate MCLK / FS sync
+
+#define FS (47000*2) //around 48khz
 #define BCLK (32 * FS)
 #define WLEN 24
 
@@ -47,7 +49,7 @@ AudioFX::AudioFX( void ) : I2S(SPORT0, BCLK_PIN, FS_PIN, AD0_PIN, BD0_PIN)
 bool AudioFX::begin( void )
 {
 	//begin the MCLK
-	_tmr.begin(VARIANT_SCLK0/8);
+	_tmr.begin(11500000UL);
 
 	//begin i2s
 	I2S::begin(BCLK, FS, WLEN);

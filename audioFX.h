@@ -12,8 +12,11 @@
 #include "dma.h"
 #include "Timer.h"
 #include "mdmaArbiter.h"
+#include "audioFX_config.h"
 
-#define AUDIO_BUFSIZE 128
+#define AUDIO_COPY(dst,src) memcpy(dst, src, AUDIO_BUFSIZE * sizeof(int32_t))
+#define ARRAY_COUNT_32(x) (sizeof(x)/sizeof(q31))
+#define ARRAY_END_32(x) (x + ARRAY_COUNT_32(x))
 
 class AudioFX : public I2S
 {
@@ -33,6 +36,5 @@ private:
 	static Timer _tmr;
 	static MdmaArbiter _arb;
 };
-
 
 #endif /* LIB_AUDIOFX_H_ */

@@ -11,7 +11,7 @@
 
 //TODO: fix this once we can get a more accurate MCLK / FS sync
 
-#define FS (47000*2) //around 48khz
+#define FS (48300*2) //around 48khz
 #define BCLK (32 * FS)
 #define WLEN 24
 
@@ -49,7 +49,7 @@ AudioFX::AudioFX( void ) : I2S(SPORT0, BCLK_PIN, FS_PIN, AD0_PIN, BD0_PIN)
 bool AudioFX::begin( void )
 {
 	//begin the MCLK
-	_tmr.begin(11500000UL);
+	_tmr.begin(FS*128);
 
 	//begin i2s
 	I2S::begin(BCLK, FS, WLEN);
@@ -149,7 +149,7 @@ int SPORT0_A_DMA_Handler (int IQR_NUMBER )
 
 	//TODO: check for unfinished process buffer
 	if(bufReady){
-		asm volatile("EMUEXCPT;");
+		//asm volatile("EMUEXCPT;");
 	}
 
 	//rotate out the buffers

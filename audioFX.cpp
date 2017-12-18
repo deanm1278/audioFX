@@ -148,9 +148,7 @@ int SPORT0_A_DMA_Handler (int IQR_NUMBER )
 	DMA[SPORT0_B_DMA]->CFG.bit.EN = DMA_CFG_DISABLE;
 
 	//TODO: check for unfinished process buffer
-	if(bufReady){
-		//asm volatile("EMUEXCPT;");
-	}
+	if(bufReady) asm volatile("EMUEXCPT;");
 
 	//rotate out the buffers
 	struct audioBuf *oldOutBuf = outBuf;

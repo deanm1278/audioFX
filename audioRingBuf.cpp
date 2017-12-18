@@ -9,7 +9,7 @@
 #include "audioRingBuf.h"
 #include "variant.h"
 
-__attribute__ ((section(".l2"))) int32_t ringBuf[256 * (AUDIO_BUFSIZE << 1)];
+__attribute__ ((section(".l2"))) int32_t ringBuf[384 * (AUDIO_BUFSIZE << 1)];
 
 AudioRingBuf::AudioRingBuf(uint32_t size, AudioFX *fx, uint32_t addrOffset)
 {

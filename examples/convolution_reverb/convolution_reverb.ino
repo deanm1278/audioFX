@@ -1,55 +1,71 @@
-/**************************************
- * This example shows how to do a simple chorus effect.
- */
-
 #include "audioFX.h"
 #include "audioRingBuf.h"
-#include "impulse_response.h"
+#include "scheduler.h"
 
 //create the fx object
 AudioFX fx;
 
-//the number of blocks in the impulse response
-#define TOTAL_BLOCKS (uint32_t)(sizeof(impulse_response)/(AUDIO_BUFSIZE<<3))
+//create a process scheduler
+Scheduler sch;
 
 //this will hold past input data
-AudioRingBuf buf(TOTAL_BLOCKS, &fx);
+AudioRingBuf buf(256, &fx);
 
-q31 blockDataL[AUDIO_BUFSIZE], blockDataR[AUDIO_BUFSIZE];
+volatile int N;
 
+#define MAX_PRIO 6
 
-q31 *lptr, *rptr, *irptr;
+/* process block of size N. This is
+ * done using the overlap-save method.
+ */
+void NBlock(){
+}
 
-void audioLoop(q31 *left, q31 *right)
+/* process block of size 2N */
+void N2Block(){
+	/* TODO: Queue the MDMA job for the following
+	 * 2N block at the end of this one
+	 */
+}
+
+/* process block of size 4N */
+void N4Block(){
+	/* TODO: Queue the MDMA job for the following
+	 * 4N block at the end of this one
+	 */
+}
+
+/*
+ * This is called from interrupt context when
+ * a buffer is ready
+ */
+void audioHook(q31 *data)
 {
-  //save the input data
-  buf.push(left, right);
+	N++;
+	//process a block of size N every time
+	sch.addTask(NBlock, MAX_PRIO);
 
-  if(buf.full()){
-    irptr = impulse_response;
-    for(uint32_t i=0; i<TOTAL_BLOCKS; i++){
 
-      //grab the next block of recorded data
-      buf.peekCore(blockDataL, blockDataR, i);
-
-      lptr = left; rptr = right;
-      for(int j=0; j<AUDIO_BUFSIZE; j++){
-        *lptr += __builtin_bfin_mult_fr1x32x32(*lptr, *irptr++);
-        *rptr += __builtin_bfin_mult_fr1x32x32(*rptr, *irptr++);
-        lptr++; rptr++;
-      }
-    }
-    //shift out the last block in the buffer to make room for new
-    buf.discard();
-  }
+	if(N%2 == 0){
+		sch.addTask(N2Block, MAX_PRIO - 1);
+	}
+	if(N%4 == 0){
+		sch.addTask(N4Block, MAX_PRIO - 2);
+	}
 }
 
 void setup() {
+  //begin the scheduler
+  sch.begin();
+  N = 0;
+
   fx.begin();
-  fx.setCallback(audioLoop);
+  fx.setHook(audioHook);
 }
 
 void loop() {
-  fx.processBuffer();
+	/*
+	 * Since we are using the interrupt-driven implementation,
+	 * nothing happens in here.
+	 */
 }
-

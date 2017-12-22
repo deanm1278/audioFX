@@ -34,6 +34,8 @@ static int32_t procRight[AUDIO_BUFSIZE];
 
 static volatile bool bufReady;
 
+void (*AudioFX::audioHook)(int32_t *);
+
 Timer AudioFX::_tmr(MCLK_PIN);
 MdmaArbiter AudioFX::_arb;
 
@@ -44,6 +46,7 @@ AudioFX::AudioFX( void ) : I2S(SPORT0, BCLK_PIN, FS_PIN, AD0_PIN, BD0_PIN)
 	procBuf = &buffers[2];
 	bufReady = false;
 	audioCallback = NULL;
+	audioHook = NULL;
 }
 
 bool AudioFX::begin( void )
@@ -164,6 +167,8 @@ int SPORT0_A_DMA_Handler (int IQR_NUMBER )
 	DMA[SPORT0_B_DMA]->CFG.bit.EN = DMA_CFG_ENABLE;
 
 	bufReady = true;
+
+	if(AudioFX::audioHook != NULL) AudioFX::audioHook(procBuf->data);
 
 	return IQR_NUMBER;
 }

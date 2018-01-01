@@ -6,42 +6,24 @@
 AudioFX fx;
 Scheduler sch;
 
+
+/*************************************************************
+          Early Reflections
+*************************************************************/
+
 //circular buffer for our early reflections network
 #define ER_NETWORK_SIZE 32
 __attribute__ ((section(".l2"))) int32_t ERData[ER_NETWORK_SIZE * (AUDIO_BUFSIZE << 1)];
 static AudioRingBuf ERBuf(ERData, ER_NETWORK_SIZE, &fx);
 
-//circular buffer to hold our delayed data from the filter network
-#define FILTER_DELAY 64
-__attribute__ ((section(".l2"))) int32_t filterDelayData[FILTER_DELAY * (AUDIO_BUFSIZE << 1)];
-static AudioRingBuf filterDelayBuf(filterDelayData, FILTER_DELAY, &fx);
-
-//buffers for the comb filters
-#define NUM_COMB_FILTERS 3
-
-#define CF0_SIZE AUDIO_SEC_TO_BLOCKS(.05)
-__attribute__ ((section(".l2"))) int32_t cf0Data[CF0_SIZE * (AUDIO_BUFSIZE << 1)];
-static AudioRingBuf cf0Buf(cf0Data, CF0_SIZE, &fx);
-
-#define CF1_SIZE AUDIO_SEC_TO_BLOCKS(.061)
-__attribute__ ((section(".l2"))) int32_t cf1Data[CF1_SIZE * (AUDIO_BUFSIZE << 1)];
-static AudioRingBuf cf1Buf(cf1Data, CF1_SIZE, &fx);
-
-#define CF2_SIZE AUDIO_SEC_TO_BLOCKS(.078)
-__attribute__ ((section(".l2"))) int32_t cf2Data[CF2_SIZE * (AUDIO_BUFSIZE << 1)];
-static AudioRingBuf cf2Buf(cf2Data, CF2_SIZE, &fx);
-
-static AudioRingBuf *combFilters[NUM_COMB_FILTERS] = { &cf0Buf, &cf1Buf, &cf2Buf };
-
-//this will hold interleaved data
-int32_t *processData;
+__attribute__ ((section(".data2"))) int32_t ERLeft[ER_SIZE], ERRight[ER_SIZE];
 
 typedef struct {
   uint16_t dl;
   int32_t gain;
 } delayTap;
 
-#define NUM_ER_TAPS 5
+#define NUM_ER_TAPS 18
 #define TAP_MIN AUDIO_SEC_TO_SAMPLES(.0043)
 #define TAP_MAX AUDIO_SEC_TO_SAMPLES(.0797)
 
@@ -51,9 +33,69 @@ static const delayTap taps[NUM_ER_TAPS] = {
     { TAP_MIN,              _F(.841) },
     { AUDIO_SEC_TO_SAMPLES(.0268),    _F(.379) },
     { AUDIO_SEC_TO_SAMPLES(.0458),    _F(.289) },
-    { AUDIO_SEC_TO_SAMPLES(.0587),    _F(.245) },
-    { TAP_MAX,              _F(.193) },
+    { AUDIO_SEC_TO_SAMPLES(.0587),    _F(.193) },
+    { AUDIO_SEC_TO_SAMPLES(.0707),    _F(.180) },
+    { AUDIO_SEC_TO_SAMPLES(.0741),    _F(.142) },
+    { AUDIO_SEC_TO_SAMPLES(.0215),    _F(.504) },
+    { AUDIO_SEC_TO_SAMPLES(.0270),    _F(.380) },
+    { AUDIO_SEC_TO_SAMPLES(.0485),    _F(.272) },
+    { AUDIO_SEC_TO_SAMPLES(.0595),    _F(.217) },
+    { AUDIO_SEC_TO_SAMPLES(.0708),    _F(.181) },
+    { AUDIO_SEC_TO_SAMPLES(.0753),    _F(.167) },
+    { AUDIO_SEC_TO_SAMPLES(.0225),    _F(.491) },
+    { AUDIO_SEC_TO_SAMPLES(.0298),    _F(.346) },
+    { AUDIO_SEC_TO_SAMPLES(.0572),    _F(.192) },
+    { AUDIO_SEC_TO_SAMPLES(.0612),    _F(.181) },
+    { AUDIO_SEC_TO_SAMPLES(.0726),    _F(.176) },
+    { TAP_MAX,              _F(.134) },
 };
+
+/*************************************************************
+*************************************************************/
+
+//circular buffer to hold our delayed data from the filter network
+#define FILTER_DELAY 64
+__attribute__ ((section(".l2"))) int32_t filterDelayData[FILTER_DELAY * (AUDIO_BUFSIZE << 1)];
+static AudioRingBuf filterDelayBuf(filterDelayData, FILTER_DELAY, &fx);
+
+__attribute__ ((section(".data2"))) int32_t filterInputLeft[AUDIO_BUFSIZE], filterInputRight[AUDIO_BUFSIZE];
+__attribute__ ((section(".data2"))) int32_t filterLeft[AUDIO_BUFSIZE], filterRight[AUDIO_BUFSIZE];
+
+/*************************************************************
+          COMB FILTERS
+*************************************************************/
+//buffers for the comb filters
+#define NUM_COMB_FILTERS 6
+
+#define CF0_SIZE AUDIO_SEC_TO_BLOCKS(.05)
+__attribute__ ((section(".l2"))) int32_t cf0Data[CF0_SIZE * (AUDIO_BUFSIZE << 1)];
+static AudioRingBuf cf0Buf(cf0Data, CF0_SIZE, &fx);
+
+#define CF1_SIZE AUDIO_SEC_TO_BLOCKS(.056)
+__attribute__ ((section(".l2"))) int32_t cf1Data[CF1_SIZE * (AUDIO_BUFSIZE << 1)];
+static AudioRingBuf cf1Buf(cf1Data, CF1_SIZE, &fx);
+
+#define CF2_SIZE AUDIO_SEC_TO_BLOCKS(.061)
+__attribute__ ((section(".l2"))) int32_t cf2Data[CF2_SIZE * (AUDIO_BUFSIZE << 1)];
+static AudioRingBuf cf2Buf(cf2Data, CF2_SIZE, &fx);
+
+#define CF3_SIZE AUDIO_SEC_TO_BLOCKS(.068)
+__attribute__ ((section(".l2"))) int32_t cf3Data[CF3_SIZE * (AUDIO_BUFSIZE << 1)];
+static AudioRingBuf cf3Buf(cf3Data, CF3_SIZE, &fx);
+
+#define CF4_SIZE AUDIO_SEC_TO_BLOCKS(.072)
+__attribute__ ((section(".l2"))) int32_t cf4Data[CF4_SIZE * (AUDIO_BUFSIZE << 1)];
+static AudioRingBuf cf4Buf(cf4Data, CF4_SIZE, &fx);
+
+#define CF5_SIZE AUDIO_SEC_TO_BLOCKS(.078)
+__attribute__ ((section(".l2"))) int32_t cf5Data[CF5_SIZE * (AUDIO_BUFSIZE << 1)];
+static AudioRingBuf cf5Buf(cf5Data, CF5_SIZE, &fx);
+
+static AudioRingBuf *combFilters[NUM_COMB_FILTERS] = { &cf0Buf, &cf1Buf, &cf2Buf, &cf3Buf, &cf4Buf, &cf5Buf };
+
+/*************************************************************
+          FIR FILTER
+*************************************************************/
 
 //These will be the coefficients for the filter
 static const q31 coeffs[] = {
@@ -86,15 +128,16 @@ filter_coeffs fc = {
     ARRAY_COUNT_32(coeffs),   //number of coefficients
 };
 
-__attribute__ ((section(".data2"))) int32_t ERLeft[ER_SIZE], ERRight[ER_SIZE];
+int32_t lastBlockL[AUDIO_BUFSIZE], lastBlockR[AUDIO_BUFSIZE];
 
-__attribute__ ((section(".data2"))) int32_t filterInputLeft[AUDIO_BUFSIZE], filterInputRight[AUDIO_BUFSIZE];
-__attribute__ ((section(".data2"))) int32_t filterLeft[AUDIO_BUFSIZE], filterRight[AUDIO_BUFSIZE];
+/*************************************************************
+*************************************************************/
 
 int32_t dryData[AUDIO_BUFSIZE << 1];
 int32_t scratchDataL[AUDIO_BUFSIZE], scratchDataR[AUDIO_BUFSIZE];
 
-int32_t lastBlockL[AUDIO_BUFSIZE], lastBlockR[AUDIO_BUFSIZE];
+//this will hold interleaved data
+int32_t *processData;
 
 void processER()
 {
@@ -215,4 +258,3 @@ void setup() {
 void loop() {
   while(1) __asm__ volatile ("IDLE;");
 }
-

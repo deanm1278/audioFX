@@ -41,14 +41,18 @@ bool MdmaArbiter::begin( void ) {
 	return true;
 }
 
-bool MdmaArbiter::queue(void *dst, void *src, uint32_t dstMod, uint32_t srcMod, void (*cb)(void), volatile bool *done)
+bool MdmaArbiter::queue(void *dst, void *src, uint32_t dstMod, uint32_t srcMod, uint32_t count, void (*cb)(void), volatile bool *done)
 {
-	if(cnt == MAX_JOBS) return false;
+	if(cnt == MAX_JOBS){
+		return false;
+		__asm__ volatile("EMUEXCPT;");
+	}
 
 	head->destAddr = (uint32_t)dst;
 	head->srcAddr = (uint32_t)src;
 	head->dstMod = dstMod;
 	head->srcMod = srcMod;
+	head->count = count;
 	head->cb = cb;
 	head->done = done;
 
@@ -63,14 +67,19 @@ bool MdmaArbiter::queue(void *dst, void *src, uint32_t dstMod, uint32_t srcMod, 
 	return true;
 }
 
-bool MdmaArbiter::queue(void *dst, void *src, uint32_t dstMod, uint32_t srcMod)
+bool MdmaArbiter::queue(void *dst, void *src, uint32_t dstMod, uint32_t srcMod, uint32_t count)
 {
-	return queue(dst, src, dstMod, srcMod, NULL, NULL);
+	return queue(dst, src, dstMod, srcMod, count, NULL, NULL);
 }
 
 bool MdmaArbiter::queue(void *dst, void *src, uint32_t dstMod, uint32_t srcMod, volatile bool *done)
 {
-	return queue(dst, src, dstMod, srcMod, NULL, done);
+	return queue(dst, src, dstMod, srcMod, AUDIO_BUFSIZE, NULL, done);
+}
+
+bool MdmaArbiter::queue(void *dst, void *src, uint32_t dstMod, uint32_t srcMod, uint32_t count, void (*cb)(void))
+{
+	return queue(dst, src, dstMod, srcMod, count, cb, NULL);
 }
 
 void MdmaArbiter::runQueue( void )
@@ -90,14 +99,22 @@ void MdmaArbiter::runQueue( void )
 		ch->available = false;
 		ch->readChannel->ADDRSTART.reg = tail->srcAddr;
 		ch->readChannel->XMOD.reg = tail->srcMod;
+		ch->readChannel->XCNT.reg = tail->count;
 		ch->writeChannel->ADDRSTART.reg = tail->destAddr;
 		ch->writeChannel->XMOD.reg = tail->dstMod;
+		ch->writeChannel->XCNT.reg = tail->count;
 		ch->cb = tail->cb;
 		ch->done = tail->done;
 
 		ch->readChannel->CFG.bit.EN = DMA_CFG_ENABLE;
 		ch->writeChannel->CFG.bit.EN = DMA_CFG_ENABLE;
 
+		if(ch->readChannel->STAT.bit.RUN == 0 ||
+				ch->writeChannel->STAT.bit.RUN == 0){
+			__asm__ volatile ("EMUEXCPT;");
+		}
+
+		setIRQPriority(ch->IRQ, IRQ_MAX_PRIORITY >> 1);
 		enableIRQ(ch->IRQ);
 
 		if(tail == &jobBuf[MAX_JOBS - 1]) tail = jobBuf;

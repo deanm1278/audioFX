@@ -11,7 +11,7 @@
 
 //TODO: fix this once we can get a more accurate MCLK / FS sync
 
-#define FS (48300*2) //around 48khz
+#define FS (AUDIO_SAMPLE_RATE*2) //around 48khz
 #define BCLK (32 * FS)
 #define WLEN 24
 
@@ -89,6 +89,7 @@ bool AudioFX::begin( void )
 	DMA[SPORT0_B_DMA]->CFG.bit.EN = DMA_CFG_ENABLE;
 
 	enableIRQ(29);
+	setIRQPriority(29, IRQ_MAX_PRIORITY >> 1);
 
 	return true;
 }
@@ -97,20 +98,11 @@ void AudioFX::processBuffer( void )
 {
 	if(bufReady){
 		if(audioCallback != NULL){
-			//convert 24 bit 2s complement to int32_t
-			//TODO: convert this to a zero overhead loop?
+			audioCallback(procLeft, procRight);
+			//re-interleave the buffers using the core now that we're done w/ our processing algo
 			int32_t *d = procBuf->data;
 			int32_t *l = procLeft;
 			int32_t *r = procRight;
-			for(int i=0; i<AUDIO_BUFSIZE; i++){
-				*l++ = (*d++ << 8) / (1 << 8);
-				*r++ = (*d++ << 8) / (1 << 8);
-			}
-			audioCallback(procLeft, procRight);
-			//re-interleave the buffers using the core now that we're done w/ our processing algo
-			d = procBuf->data;
-			l = procLeft;
-			r = procRight;
 			for(int i=0; i<AUDIO_BUFSIZE; i++){
 				*d++ = *l++;
 				*d++ = *r++;
@@ -130,7 +122,7 @@ void AudioFX::interleave(int32_t *dest, int32_t * left, int32_t *right)
 void AudioFX::deinterleave(int32_t * left, int32_t *right, int32_t *src, void (*cb)(void), volatile bool *done)
 {
 	_arb.queue(left, src, sizeof(int32_t), sizeof(int32_t) * 2);
-	_arb.queue(right, src + 1, sizeof(int32_t), sizeof(int32_t) * 2, cb, done);
+	_arb.queue(right, src + 1, sizeof(int32_t), sizeof(int32_t) * 2, AUDIO_BUFSIZE, cb, done);
 }
 
 void AudioFX::deinterleave(int32_t * left, int32_t *right, int32_t *src, volatile bool *done)
@@ -151,7 +143,7 @@ int SPORT0_A_DMA_Handler (int IQR_NUMBER )
 	DMA[SPORT0_B_DMA]->CFG.bit.EN = DMA_CFG_DISABLE;
 
 	//TODO: check for unfinished process buffer
-	if(bufReady) asm volatile("EMUEXCPT;");
+	//if(bufReady) asm volatile("EMUEXCPT;");
 
 	//rotate out the buffers
 	struct audioBuf *oldOutBuf = outBuf;
@@ -165,6 +157,12 @@ int SPORT0_A_DMA_Handler (int IQR_NUMBER )
 
 	DMA[SPORT0_A_DMA]->CFG.bit.EN = DMA_CFG_ENABLE;
 	DMA[SPORT0_B_DMA]->CFG.bit.EN = DMA_CFG_ENABLE;
+
+	//convert 24 bit 2s complement to int32_t
+	//TODO: convert this to a zero overhead loop?
+	int32_t *d = procBuf->data;
+	for(int i=0; i<(AUDIO_BUFSIZE << 1); i++)
+		*d++ = (*d << 8) / (1 << 8);
 
 	bufReady = true;
 

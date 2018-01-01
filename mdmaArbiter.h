@@ -9,6 +9,7 @@
 #define AUDIOFX_MDMAARBITER_H_
 
 #include "Arduino.h"
+#include "audioFX_config.h"
 
 #define MAX_JOBS 16
 
@@ -17,6 +18,7 @@ struct mdmaJob {
 	uint32_t srcAddr;
 	uint32_t dstMod;
 	uint32_t srcMod;
+	uint32_t count;
 	void (*cb)(void);
 	volatile bool *done;
 };
@@ -38,8 +40,9 @@ public:
 	bool queue(void *dst, void *src);
 	bool queue(void *dst, void *src, void (*cb)(void));
 	bool queue(void *dst, void *src, uint32_t dstMod, uint32_t srcMod, volatile bool *done);
-	bool queue(void *dst, void *src, uint32_t dstMod, uint32_t srcMod);
-	bool queue(void *dst, void *src, uint32_t dstMod, uint32_t srcMod, void (*cb)(void), volatile bool *done);
+	bool queue(void *dst, void *src, uint32_t dstMod, uint32_t srcMod, uint32_t count = AUDIO_BUFSIZE);
+	bool queue(void *dst, void *src, uint32_t dstMod, uint32_t srcMod, uint32_t count, void (*cb)(void));
+	bool queue(void *dst, void *src, uint32_t dstMod, uint32_t srcMod, uint32_t count, void (*cb)(void), volatile bool *done);
 
 	static void runQueue( void );
 	static volatile struct mdmaChannel channels[NUM_MDMA_CHANNELS];

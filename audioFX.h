@@ -14,12 +14,18 @@
 #include "mdmaArbiter.h"
 #include "audioFX_config.h"
 
+#define AUDIO_SAMPLE_RATE 48300
+
 #define AUDIO_COPY(dst,src) memcpy(dst, src, AUDIO_BUFSIZE * sizeof(int32_t))
-#define ARRAY_COUNT_32(x) (sizeof(x)/sizeof(q31))
-#define ARRAY_END_32(x) (x + ARRAY_COUNT_32(x))
+#define ARRAY_COUNT_32(x) (sizeof((q31 *)x)/sizeof(q31))
+#define ARRAY_END_32(x) ((q31 *)x + ARRAY_COUNT_32(x))
+
+#define AUDIO_SEC_TO_SAMPLES(x) ((uint32_t)(x * AUDIO_SAMPLE_RATE))
+#define AUDIO_SEC_TO_BLOCKS(x) ((uint32_t)((x * AUDIO_SAMPLE_RATE)/AUDIO_BUFSIZE))
 
 class AudioFX : public I2S
 {
+	friend class AudioRingBuf;
 public:
 	AudioFX( void );
 	bool begin( void );
@@ -32,11 +38,13 @@ public:
 	void deinterleave(int32_t * left, int32_t *right, int32_t *src, void (*cb)(void), volatile bool *done);
 	static void (*audioHook)(int32_t *);
 
+protected:
+	static MdmaArbiter _arb;
+
 private:
 	void (*audioCallback)(int32_t *, int32_t *);
 
 	static Timer _tmr;
-	static MdmaArbiter _arb;
 };
 
 #endif /* LIB_AUDIOFX_H_ */

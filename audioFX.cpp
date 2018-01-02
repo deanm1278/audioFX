@@ -152,17 +152,22 @@ int SPORT0_A_DMA_Handler (int IQR_NUMBER )
 	procBuf = inBuf;
 	inBuf = oldOutBuf;
 
+	int32_t *d = outBuf->data;
+	int32_t *e = procBuf->data;
+	for(int i=0; i<(AUDIO_BUFSIZE << 1); i++){
+		*e++ = (*e << 8) / (1 << 8); //convert input to 24 bit 2s complement
+
+		//saturate output to 24 bit 2s complement
+		if(*d > (int32_t)0x7FFFFF) *d = (int32_t)0x7FFFFF;
+		else if(*d < (int32_t)-8388608) *d = (int32_t)-8388608;
+		d++;
+	}
+
 	DMA[SPORT0_B_DMA]->ADDRSTART.reg = (uint32_t)inBuf;
 	DMA[SPORT0_A_DMA]->ADDRSTART.reg = (uint32_t)outBuf;
 
 	DMA[SPORT0_A_DMA]->CFG.bit.EN = DMA_CFG_ENABLE;
 	DMA[SPORT0_B_DMA]->CFG.bit.EN = DMA_CFG_ENABLE;
-
-	//convert 24 bit 2s complement to int32_t
-	//TODO: convert this to a zero overhead loop?
-	int32_t *d = procBuf->data;
-	for(int i=0; i<(AUDIO_BUFSIZE << 1); i++)
-		*d++ = (*d << 8) / (1 << 8);
 
 	bufReady = true;
 

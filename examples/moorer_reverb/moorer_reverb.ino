@@ -1,3 +1,8 @@
+/* This is an implementation of Moorers reverb algorithm.
+ * https://christianfloisand.wordpress.com/2012/10/18/algorithmic-reverbs-the-moorer-design/
+ *
+ */
+
 #include "audioFX.h"
 #include "scheduler.h"
 #include "audioRingBuf.h"
@@ -6,21 +11,18 @@
 AudioFX fx;
 Scheduler sch;
 
-
 /*************************************************************
           Early Reflections
 *************************************************************/
 
 //circular buffer for our early reflections network
 #define ER_NETWORK_SIZE 32
-__attribute__ ((section(".l2"))) int32_t ERData[ER_NETWORK_SIZE * (AUDIO_BUFSIZE << 1)];
+L2DATA q31 ERData[ER_NETWORK_SIZE * (AUDIO_BUFSIZE << 1)];
 static AudioRingBuf ERBuf(ERData, ER_NETWORK_SIZE, &fx);
-
-__attribute__ ((section(".data2"))) int32_t ERLeft[ER_SIZE], ERRight[ER_SIZE];
 
 typedef struct {
   uint16_t dl;
-  int32_t gain;
+  q31 gain;
 } delayTap;
 
 #define NUM_ER_TAPS 18
@@ -28,9 +30,10 @@ typedef struct {
 #define TAP_MAX AUDIO_SEC_TO_SAMPLES(.0797)
 
 #define ER_SIZE ((TAP_MAX - TAP_MIN) + AUDIO_BUFSIZE)
+RAMB q31 ERLeft[ER_SIZE], ERRight[ER_SIZE];
 
 static const delayTap taps[NUM_ER_TAPS] = {
-    { TAP_MIN,              _F(.841) },
+    { TAP_MIN,              		  _F(.841) },
     { AUDIO_SEC_TO_SAMPLES(.0268),    _F(.379) },
     { AUDIO_SEC_TO_SAMPLES(.0458),    _F(.289) },
     { AUDIO_SEC_TO_SAMPLES(.0587),    _F(.193) },
@@ -47,7 +50,7 @@ static const delayTap taps[NUM_ER_TAPS] = {
     { AUDIO_SEC_TO_SAMPLES(.0572),    _F(.192) },
     { AUDIO_SEC_TO_SAMPLES(.0612),    _F(.181) },
     { AUDIO_SEC_TO_SAMPLES(.0726),    _F(.176) },
-    { TAP_MAX,              _F(.134) },
+    { TAP_MAX,           			  _F(.134) },
 };
 
 /*************************************************************
@@ -55,11 +58,11 @@ static const delayTap taps[NUM_ER_TAPS] = {
 
 //circular buffer to hold our delayed data from the filter network
 #define FILTER_DELAY 64
-__attribute__ ((section(".l2"))) int32_t filterDelayData[FILTER_DELAY * (AUDIO_BUFSIZE << 1)];
+L2DATA q31 filterDelayData[FILTER_DELAY * (AUDIO_BUFSIZE << 1)];
 static AudioRingBuf filterDelayBuf(filterDelayData, FILTER_DELAY, &fx);
 
-__attribute__ ((section(".data2"))) int32_t filterInputLeft[AUDIO_BUFSIZE], filterInputRight[AUDIO_BUFSIZE];
-__attribute__ ((section(".data2"))) int32_t filterLeft[AUDIO_BUFSIZE], filterRight[AUDIO_BUFSIZE];
+RAMB q31 filterInputLeft[AUDIO_BUFSIZE], filterInputRight[AUDIO_BUFSIZE];
+RAMB q31 filterLeft[AUDIO_BUFSIZE], filterRight[AUDIO_BUFSIZE];
 
 /*************************************************************
           COMB FILTERS
@@ -68,27 +71,28 @@ __attribute__ ((section(".data2"))) int32_t filterLeft[AUDIO_BUFSIZE], filterRig
 #define NUM_COMB_FILTERS 6
 
 #define CF0_SIZE AUDIO_SEC_TO_BLOCKS(.05)
-__attribute__ ((section(".l2"))) int32_t cf0Data[CF0_SIZE * (AUDIO_BUFSIZE << 1)];
+#define CF1_SIZE AUDIO_SEC_TO_BLOCKS(.056)
+#define CF2_SIZE AUDIO_SEC_TO_BLOCKS(.061)
+#define CF3_SIZE AUDIO_SEC_TO_BLOCKS(.068)
+#define CF4_SIZE AUDIO_SEC_TO_BLOCKS(.072)
+#define CF5_SIZE AUDIO_SEC_TO_BLOCKS(.078)
+
+L2DATA q31 cf0Data[CF0_SIZE * (AUDIO_BUFSIZE << 1)];
 static AudioRingBuf cf0Buf(cf0Data, CF0_SIZE, &fx);
 
-#define CF1_SIZE AUDIO_SEC_TO_BLOCKS(.056)
-__attribute__ ((section(".l2"))) int32_t cf1Data[CF1_SIZE * (AUDIO_BUFSIZE << 1)];
+L2DATA q31 cf1Data[CF1_SIZE * (AUDIO_BUFSIZE << 1)];
 static AudioRingBuf cf1Buf(cf1Data, CF1_SIZE, &fx);
 
-#define CF2_SIZE AUDIO_SEC_TO_BLOCKS(.061)
-__attribute__ ((section(".l2"))) int32_t cf2Data[CF2_SIZE * (AUDIO_BUFSIZE << 1)];
+L2DATA q31 cf2Data[CF2_SIZE * (AUDIO_BUFSIZE << 1)];
 static AudioRingBuf cf2Buf(cf2Data, CF2_SIZE, &fx);
 
-#define CF3_SIZE AUDIO_SEC_TO_BLOCKS(.068)
-__attribute__ ((section(".l2"))) int32_t cf3Data[CF3_SIZE * (AUDIO_BUFSIZE << 1)];
+L2DATA q31 cf3Data[CF3_SIZE * (AUDIO_BUFSIZE << 1)];
 static AudioRingBuf cf3Buf(cf3Data, CF3_SIZE, &fx);
 
-#define CF4_SIZE AUDIO_SEC_TO_BLOCKS(.072)
-__attribute__ ((section(".l2"))) int32_t cf4Data[CF4_SIZE * (AUDIO_BUFSIZE << 1)];
+L2DATA q31 cf4Data[CF4_SIZE * (AUDIO_BUFSIZE << 1)];
 static AudioRingBuf cf4Buf(cf4Data, CF4_SIZE, &fx);
 
-#define CF5_SIZE AUDIO_SEC_TO_BLOCKS(.078)
-__attribute__ ((section(".l2"))) int32_t cf5Data[CF5_SIZE * (AUDIO_BUFSIZE << 1)];
+L2DATA q31 cf5Data[CF5_SIZE * (AUDIO_BUFSIZE << 1)];
 static AudioRingBuf cf5Buf(cf5Data, CF5_SIZE, &fx);
 
 static AudioRingBuf *combFilters[NUM_COMB_FILTERS] = { &cf0Buf, &cf1Buf, &cf2Buf, &cf3Buf, &cf4Buf, &cf5Buf };
@@ -128,26 +132,26 @@ filter_coeffs fc = {
     ARRAY_COUNT_32(coeffs),   //number of coefficients
 };
 
-int32_t lastBlockL[AUDIO_BUFSIZE], lastBlockR[AUDIO_BUFSIZE];
+q31 lastBlockL[AUDIO_BUFSIZE], lastBlockR[AUDIO_BUFSIZE];
 
 /*************************************************************
 *************************************************************/
 
-int32_t dryData[AUDIO_BUFSIZE << 1];
-int32_t scratchDataL[AUDIO_BUFSIZE], scratchDataR[AUDIO_BUFSIZE];
+q31 dryData[AUDIO_BUFSIZE << 1];
+q31 scratchDataL[AUDIO_BUFSIZE], scratchDataR[AUDIO_BUFSIZE];
 
 //this will hold interleaved data
-int32_t *processData;
+q31 *processData;
 
 void processER()
 {
   //process early reflections network
-  int32_t *p = processData;
-  int32_t *l = filterInputLeft;
-  int32_t *r = filterInputRight;
+  q31 *p = processData;
+  q31 *l = filterInputLeft;
+  q31 *r = filterInputRight;
 
-  int32_t *tpl[NUM_ER_TAPS];
-  int32_t *tpr[NUM_ER_TAPS];
+  q31 *tpl[NUM_ER_TAPS];
+  q31 *tpr[NUM_ER_TAPS];
 
   for(int i=0; i<NUM_ER_TAPS; i++){
     tpl[i] = ERLeft + (TAP_MAX - taps[i].dl);
@@ -158,6 +162,7 @@ void processER()
     *l = 0;
     *r = 0;
 
+    //process the taps
     for(int j=0; j<NUM_ER_TAPS; j++){
       *l += __builtin_bfin_mult_fr1x32x32(*tpl[j]++, taps[j].gain);
       *r += __builtin_bfin_mult_fr1x32x32(*tpr[j]++, taps[j].gain);
@@ -167,19 +172,23 @@ void processER()
     *p++ = FRACMUL(*p, .5) + *l;
     *p++ = FRACMUL(*p, .5) + *r;
 
+    //increment pointers
     l++;
     r++;
   }
 
-  //Process the comb filters
+  /* Process the comb filters. Rather than worrying about DMA
+   * for these for now we will just use the core to fetch and write back the
+   * data.
+   */
   for(int i=0; i<NUM_COMB_FILTERS; i++){
     if(combFilters[i]->full()){
       combFilters[i]->popCore(scratchDataL, scratchDataR);
 
-      int32_t *il = filterInputLeft;
-      int32_t *ir = filterInputRight;
-      int32_t *l = scratchDataL;
-      int32_t *r = scratchDataR;
+      q31 *il = filterInputLeft;
+      q31 *ir = filterInputRight;
+      q31 *l = scratchDataL;
+      q31 *r = scratchDataR;
       for(int j=0; j<AUDIO_BUFSIZE; j++){
         *l = *il + FRACMUL(*l, .7);
         *il++ += *l++;
@@ -196,6 +205,7 @@ void processER()
   fir32(&fc, filterInputLeft, scratchDataL, lastBlockL);
   fir32(&fc, filterInputRight, scratchDataR, lastBlockR);
 
+  //push to the late reflections delay buffer
   filterDelayBuf.push(scratchDataL, scratchDataR);
 
   //save the input samples
@@ -203,11 +213,14 @@ void processER()
   AUDIO_COPY(lastBlockR, filterInputRight);
 }
 
-void processFilter()
+void addLateReflections()
 {
-  int32_t *p = processData;
-  int32_t *l = filterLeft;
-  int32_t *r = filterRight;
+  /* Add the delayed late reflections network to
+   * the output signal.
+   */
+  q31 *p = processData;
+  q31 *l = filterLeft;
+  q31 *r = filterRight;
   for(int i=0; i<AUDIO_BUFSIZE; i++){
     *p++ += *l++;
     *p++ += *r++;
@@ -218,16 +231,16 @@ void processFilter()
 void ERFetchDone() { sch.addTask(processER, SCHEDULER_MAX_PRIO); }
 
 //schedule the filter task when the filter data is ready
-void filterFetchDone() { sch.addTask(processFilter, SCHEDULER_MAX_PRIO - 1); }
+void LRFetchDone() { sch.addTask(addLateReflections, SCHEDULER_MAX_PRIO - 1); }
 
 //This will run in interrupt context
-void audioHook(int32_t *data)
+void audioHook(q31 *data)
 {
   //save the pointer to the new data
   processData = data;
 
   //push to the early reflections ring buffer
-  memcpy(dryData, data, (AUDIO_BUFSIZE << 1) * sizeof(int32_t));
+  memcpy(dryData, data, (AUDIO_BUFSIZE << 1) * sizeof(q31));
   ERBuf.pushInterleaved(dryData);
 
   //begin fetching necessary data
@@ -237,7 +250,7 @@ void audioHook(int32_t *data)
   }
 
   if(filterDelayBuf.full())
-    filterDelayBuf.pop(filterLeft, filterRight, filterFetchDone);
+    filterDelayBuf.pop(filterLeft, filterRight, LRFetchDone);
 }
 
 // the setup function runs once when you press reset or power the board

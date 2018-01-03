@@ -16,7 +16,7 @@ extern "C"{
 
 typedef struct {
 	const q31 *coeffs;
-	q31 *end;
+	const q31 *end;
 	uint16_t count;
 } filter_coeffs;
 

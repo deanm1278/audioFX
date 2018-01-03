@@ -17,8 +17,8 @@
 #define AUDIO_SAMPLE_RATE 48300
 
 #define AUDIO_COPY(dst,src) memcpy(dst, src, AUDIO_BUFSIZE * sizeof(int32_t))
-#define ARRAY_COUNT_32(x) (sizeof((q31 *)x)/sizeof(q31))
-#define ARRAY_END_32(x) ((q31 *)x + ARRAY_COUNT_32(x))
+#define ARRAY_COUNT_32(x) (sizeof(x)/sizeof(q31))
+#define ARRAY_END_32(x) ((const q31 *)x + ARRAY_COUNT_32(x))
 
 #define AUDIO_SEC_TO_SAMPLES(x) ((uint32_t)(x * AUDIO_SAMPLE_RATE))
 #define AUDIO_SEC_TO_BLOCKS(x) ((uint32_t)((x * AUDIO_SAMPLE_RATE)/AUDIO_BUFSIZE))

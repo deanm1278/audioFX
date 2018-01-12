@@ -54,6 +54,13 @@ bool AudioFX::begin( void )
 	//begin the MCLK
 	_tmr.begin(FS*128);
 
+	/*
+	//enable trigger for the timer
+	TRU0->GCTL.bit.EN = 1;
+	TRU0->SSR24.bit.SSR = 6;
+	TIMER0->TRG_MSK.bit.TMR04 = 0;
+	*/
+
 	//begin i2s
 	I2S::begin(BCLK, FS, WLEN);
 
@@ -85,11 +92,14 @@ bool AudioFX::begin( void )
 
 	_arb.begin();
 
+	//wait for MCLK trigger
+	//DMA[SPORT0_A_DMA]->CFG.bit.TWAIT = 1;
+
 	DMA[SPORT0_A_DMA]->CFG.bit.EN = DMA_CFG_ENABLE;
 	DMA[SPORT0_B_DMA]->CFG.bit.EN = DMA_CFG_ENABLE;
 
 	enableIRQ(29);
-	setIRQPriority(29, IRQ_MAX_PRIORITY >> 1);
+	setIRQPriority(29, IRQ_MAX_PRIORITY);
 
 	return true;
 }

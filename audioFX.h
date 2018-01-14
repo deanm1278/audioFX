@@ -33,8 +33,8 @@ public:
 	void setHook( void (*fn)(int32_t *) ){ audioHook = fn; }
 
 	void interleave(int32_t *dest, int32_t * left, int32_t *right);
-	void deinterleave(int32_t * left, int32_t *right, int32_t *src, volatile bool *done);
-	void deinterleave(int32_t * left, int32_t *right, int32_t *src, void (*cb)(void), volatile bool *done);
+	void deinterleave(int32_t * left, int32_t *right, int32_t *src);
+	void deinterleave(int32_t * left, int32_t *right, int32_t *src, void (*cb)(void));
 	static void (*audioHook)(int32_t *);
 	static Timer _tmr;
 	static MdmaArbiter _arb;

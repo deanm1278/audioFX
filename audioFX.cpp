@@ -125,19 +125,19 @@ void AudioFX::processBuffer( void )
 
 void AudioFX::interleave(int32_t *dest, int32_t * left, int32_t *right)
 {
-	_arb.queue(dest, left, sizeof(int32_t) * 2, sizeof(int32_t));
-	_arb.queue(dest + 1, right, sizeof(int32_t) * 2, sizeof(int32_t));
+	_arb.queue(dest, left, sizeof(int32_t) * 2, sizeof(int32_t), AUDIO_BUFSIZE, sizeof(int32_t));
+	_arb.queue(dest + 1, right, sizeof(int32_t) * 2, sizeof(int32_t), AUDIO_BUFSIZE, sizeof(int32_t));
 }
 
-void AudioFX::deinterleave(int32_t * left, int32_t *right, int32_t *src, void (*cb)(void), volatile bool *done)
+void AudioFX::deinterleave(int32_t * left, int32_t *right, int32_t *src, void (*cb)(void))
 {
-	_arb.queue(left, src, sizeof(int32_t), sizeof(int32_t) * 2);
-	_arb.queue(right, src + 1, sizeof(int32_t), sizeof(int32_t) * 2, AUDIO_BUFSIZE, cb, done);
+	_arb.queue(left, src, sizeof(int32_t), sizeof(int32_t) * 2, AUDIO_BUFSIZE, sizeof(int32_t));
+	_arb.queue(right, src + 1, sizeof(int32_t), sizeof(int32_t) * 2, AUDIO_BUFSIZE, sizeof(int32_t), cb);
 }
 
-void AudioFX::deinterleave(int32_t * left, int32_t *right, int32_t *src, volatile bool *done)
+void AudioFX::deinterleave(int32_t * left, int32_t *right, int32_t *src)
 {
-	deinterleave(left, right, src, NULL, done);
+	deinterleave(left, right, src, NULL);
 }
 
 void AudioFX::setCallback( void (*fn)(int32_t *, int32_t *) )

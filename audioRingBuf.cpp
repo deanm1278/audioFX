@@ -16,7 +16,7 @@ AudioRingBuf<T>::AudioRingBuf(T *buf, uint32_t size, AudioFX *fx, uint32_t addrO
 	head = (T *)startAddr;
 	tail = (T *)startAddr;
 
-	end = (T *)startAddr + (AUDIO_BUFSIZE << 1) * size;
+	end = (T *)(startAddr + (AUDIO_BUFSIZE << 1) * sizeof(T) * size);
 	count = 0;
 	cap = size;
 	_fx = fx;
@@ -25,14 +25,14 @@ AudioRingBuf<T>::AudioRingBuf(T *buf, uint32_t size, AudioFX *fx, uint32_t addrO
 template <class T>
 void AudioRingBuf<T>::resize(uint32_t size)
 {
-	end = (T *)startAddr + (AUDIO_BUFSIZE << 1) * size;
+	end = (T *)(startAddr + (AUDIO_BUFSIZE << 1) * sizeof(T) * size);
 	cap = size;
 }
 
 template <class T>
 void AudioRingBuf<T>::pushInterleaved(T *data)
 {
-	_fx->_arb.queue(head, data, sizeof(T), sizeof(T), AUDIO_BUFSIZE << 1 );
+	_fx->_arb.queue(head, data, sizeof(T), sizeof(T), AUDIO_BUFSIZE << 1, sizeof(T) );
 
 	head += (AUDIO_BUFSIZE << 1);
 	count++;
@@ -42,8 +42,8 @@ void AudioRingBuf<T>::pushInterleaved(T *data)
 template <class T>
 void AudioRingBuf<T>::push(T *leftBlock, T *rightBlock)
 {
-	_fx->_arb.queue(head, leftBlock, sizeof(T) * 2, sizeof(T));
-	_fx->_arb.queue(head + 1, rightBlock, sizeof(T) * 2, sizeof(T));
+	_fx->_arb.queue(head, leftBlock, sizeof(T) * 2, sizeof(T), AUDIO_BUFSIZE, sizeof(T));
+	_fx->_arb.queue(head + 1, rightBlock, sizeof(T) * 2, sizeof(T), AUDIO_BUFSIZE, sizeof(T));
 
 	head += (AUDIO_BUFSIZE << 1);
 	count++;
@@ -67,30 +67,18 @@ void AudioRingBuf<T>::pushCore(T *leftBlock, T *rightBlock)
 template <class T>
 void AudioRingBuf<T>::pop(T *leftBlock, T *rightBlock)
 {
-	pop(leftBlock, rightBlock, NULL, NULL);
-}
-
-template <class T>
-void AudioRingBuf<T>::pop(T *leftBlock, T *rightBlock, void (*fn)(void), volatile bool *done)
-{
-	_fx->_arb.queue(leftBlock, tail, sizeof(T), sizeof(T) * 2);
-	_fx->_arb.queue(rightBlock, tail + sizeof(T), sizeof(T), sizeof(T) * 2, AUDIO_BUFSIZE, fn, done);
-
-	tail += (AUDIO_BUFSIZE << 1);
-	count--;
-	if(tail == end) tail = (T *)startAddr;
+	pop(leftBlock, rightBlock, NULL);
 }
 
 template <class T>
 void AudioRingBuf<T>::pop(T *leftBlock, T *rightBlock, void (*fn)(void))
 {
-	pop(leftBlock, rightBlock, fn, NULL);
-}
+	_fx->_arb.queue(leftBlock, tail, sizeof(T), sizeof(T) * 2, AUDIO_BUFSIZE, sizeof(T));
+	_fx->_arb.queue(rightBlock, tail + 1, sizeof(T), sizeof(T) * 2, AUDIO_BUFSIZE, sizeof(T), fn);
 
-template <class T>
-void AudioRingBuf<T>::pop(T *leftBlock, T *rightBlock, volatile bool *done)
-{
-	pop(leftBlock, rightBlock, NULL, done);
+	tail += (AUDIO_BUFSIZE << 1);
+	count--;
+	if(tail == end) tail = (T *)startAddr;
 }
 
 template <class T>
@@ -107,12 +95,7 @@ void AudioRingBuf<T>::popCore(T *leftBlock, T *rightBlock){
 }
 
 template <class T>
-void AudioRingBuf<T>::peek(T *leftBlock, T *rightBlock, uint32_t offset){
-	peek(leftBlock, rightBlock, offset, NULL);
-}
-
-template <class T>
-void AudioRingBuf<T>::peek(T *leftBlock, T *rightBlock, uint32_t offset, volatile bool *done)
+void AudioRingBuf<T>::peek(T *leftBlock, T *rightBlock, uint32_t offset)
 {
 	T *ptr;
 	uint32_t distFromEnd = (end - tail) / (AUDIO_BUFSIZE << 1);
@@ -122,8 +105,8 @@ void AudioRingBuf<T>::peek(T *leftBlock, T *rightBlock, uint32_t offset, volatil
 	}
 	else ptr = tail + (AUDIO_BUFSIZE << 1) * offset;
 
-	_fx->_arb.queue(leftBlock, ptr, sizeof(T), sizeof(T) * 2);
-	_fx->_arb.queue(rightBlock, ptr + 1, sizeof(T), sizeof(T) * 2, AUDIO_BUFSIZE, NULL, done);
+	_fx->_arb.queue(leftBlock, ptr, sizeof(T), sizeof(T) * 2, AUDIO_BUFSIZE, sizeof(T));
+	_fx->_arb.queue(rightBlock, ptr + 1, sizeof(T), sizeof(T) * 2, AUDIO_BUFSIZE, sizeof(T));
 }
 
 template <class T>
@@ -150,8 +133,8 @@ void AudioRingBuf<T>::peekCore(T *leftBlock, T *rightBlock, uint32_t offset){
 	T *l = leftBlock;
 	T *r = rightBlock;
 	for(int i=0; i<AUDIO_BUFSIZE; i++){
-		memcpy(l, ptr, sizeof(T)); ptr += sizeof(T); l += sizeof(T);
-		memcpy(r, ptr, sizeof(T)); ptr += sizeof(T); r += sizeof(T);
+		*l++ = *ptr++;
+		*r++ = *ptr++;
 	}
 }
 
@@ -160,7 +143,7 @@ void AudioRingBuf<T>::peekHeadCore(T *leftBlock, T *rightBlock, uint32_t offset)
 
 	T *ptr;
 	offset = offset + 1;
-	uint32_t distFromStart = ((uint32_t)head - startAddr) / (AUDIO_BUFSIZE << 1);
+	uint32_t distFromStart = ((uint32_t)head - startAddr) / ((AUDIO_BUFSIZE << 1) * sizeof(T));
 
 	if(offset > distFromStart) {
 		ptr = end - (AUDIO_BUFSIZE << 1) * (offset - distFromStart);
@@ -197,8 +180,11 @@ void AudioRingBuf<T>::peekHeadSamples(T *left, T *right, uint32_t offset, uint32
 	}
 	else ptr = lastBlock - offset;
 
+//TODO: fix this
+#if 0
 	T *end_addr = (ptr + (size << 1) );
 	if( end_addr > end ){
+#endif
 		//hard to synchronize, for now lets take the CPU hit
 		//uint32_t diff = (end_addr - end) >> 1;
 
@@ -209,9 +195,11 @@ void AudioRingBuf<T>::peekHeadSamples(T *left, T *right, uint32_t offset, uint32
 			size--;
 		}
 		fn();
+#if 0
 	}
 	else{
-		_fx->_arb.queue(left, ptr, sizeof(T), (sizeof(T) << 1), size);
-		_fx->_arb.queue(right, ptr + 1, sizeof(T), (sizeof(T) << 1), size, fn);
+		_fx->_arb.queue(left, ptr, sizeof(T), (sizeof(T) << 1), size, sizeof(T));
+		_fx->_arb.queue(right, ptr + 1, sizeof(T), (sizeof(T) << 1), size, sizeof(T), fn);
 	}
+#endif
 }

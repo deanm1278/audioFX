@@ -23,13 +23,10 @@ public:
 
 	void pop(T *leftBlock, T *rightBlock);
 	void pop(T *leftBlock, T *rightBlock, void (*fn)(void));
-	void pop(T *leftBlock, T *rightBlock, volatile bool *done);
-	void pop(T *leftBlock, T *rightBlock, void (*fn)(void), volatile bool *done);
 
 	void popCore(T *leftBlock, T *rightBlock);
 
 	void peek(T *leftBlock, T *rightBlock, uint32_t offset=0);
-	void peek(T *leftBlock, T *rightBlock, uint32_t offset, volatile bool *done);
 	void peekCore(T *leftBlock, T *rightBlock, uint32_t offset=0);
 	void peekHeadCore(T *leftBlock, T *rightBlock, uint32_t offset=0);
 
@@ -48,5 +45,7 @@ protected:
 
 };
 
+template class AudioRingBuf<q31>;
+template class AudioRingBuf<complex_q31>;
 
 #endif /* AUDIOFX_AUDIORINGBUF_H_ */

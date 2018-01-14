@@ -24,15 +24,11 @@ typedef void _twidfftf_q31 (complex_q31 *twiddle_table,
 
 static _twidfftf_q31* twidfftf_q31 = (_twidfftf_q31*)0x0401e3b0;
 
-typedef q15 _twidfftf_q15_8k_table[6144];
-typedef q31 _twidfftf_q31_4k_table[3072];
-typedef q15 _twidfftrad2_q15_8k_table[4096];
-typedef q31 _twidfftrad2_q31_4k_table[2048];
+typedef const complex_q31 _twidfftf_q31_4k_table;
+typedef const complex_q31 _twidfftrad2_q31_4k_table;
 
-static const _twidfftf_q15_8k_table* twidfftf_q15_8k_table = (_twidfftf_q15_8k_table*)0x04079800;
-static const _twidfftf_q31_4k_table* twidfftf_q31_4k_table = (_twidfftf_q31_4k_table*)0x04073800;
-static const _twidfftrad2_q15_8k_table* twidfftrad2_q15_8k_table = (_twidfftrad2_q15_8k_table*)0x04079800;
-static const _twidfftrad2_q31_4k_table* twidfftrad2_q31_4k_table = (_twidfftrad2_q31_4k_table*)0x04073800;
+static _twidfftf_q31_4k_table* twidfftf_q31_4k_table = (_twidfftf_q31_4k_table*)0x04073800;
+static _twidfftrad2_q31_4k_table* twidfftrad2_q31_4k_table = (_twidfftrad2_q31_4k_table*)0x04073800;
 
 typedef void _cfft_q31 (const complex_q31 *input,
 		complex_q31 *output,
@@ -83,14 +79,13 @@ static int block_exponent;
 
 class FFT {
 public:
-	FFT(complex_q31 *twiddle, int fftMax) : tt(twiddle), _fftMax(fftMax) {
-		twidfftf_q31 (twiddle, fftMax);
-	};
-	~FFT() {};
+	FFT() : tt(twidfftf_q31_4k_table), _fftMax(4*1024) {}
+
+	~FFT() {}
 
 	//complex input
 	void fft(const complex_q31 *in, complex_q31 *out, int size) {
-		cfft_q31 (in, out, tt, _fftMax/size, size, &block_exponent, 3); //no scaling
+		cfft_q31 (in, out, tt, _fftMax/size, size, &block_exponent, 1); //static scaling
 	}
 
 	//run in place
@@ -102,17 +97,41 @@ public:
 	}
 
 	//ifft complex to real output
-	void ifft(const complex_q31 *in, q31 *out, int size) {
-		complex_q31 inter[size];
-		ifft_q31(in, inter, tt, _fftMax/size, size, &block_exponent, 3); //no scaling
+	void ifft(complex_q31 *in, q31 *out, int size) {
+		ifft_q31(in, in, tt, _fftMax/size, size, &block_exponent, 3); //no scaling
 
 		//take the real component
 		for(int i=0; i<size; i++)
-			*out++ = inter[i].re;
+			*out++ = in[i].re;
+	}
+
+
+	//ifft complex to complex
+	void ifft(const complex_q31 *in, complex_q31 *out, int size) {
+		ifft_q31(in, out, tt, _fftMax/size, size, &block_exponent, 3);
+	}
+
+	//process in place
+	void ifft(complex_q31 *io, int size) { ifft(io, io, size); }
+
+	void combine(complex_q31 *f, int size, int num) {
+		//compute IFFT of all
+		for(int i=0; i<num; i++)
+			ifft(f + size*i, f + size*i, size);
+
+		//compute fft in place for the whole block
+		fft(f, size*num);
+
+		//scale back up
+		//TODO: figure out why we need to do this
+		for(int i=0; i<size*num; i++){
+			f[i].re = f[i].re*2;
+			f[i].im = f[i].im*2;
+		}
 	}
 
 private:
-	complex_q31 *tt;
+	const complex_q31 *tt;
 	int _fftMax;
 };
 

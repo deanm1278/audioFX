@@ -18,7 +18,7 @@ Scheduler sch;
 //circular buffer for our early reflections network
 #define ER_NETWORK_SIZE 32
 L2DATA q31 ERData[ER_NETWORK_SIZE * (AUDIO_BUFSIZE << 1)];
-static AudioRingBuf ERBuf(ERData, ER_NETWORK_SIZE, &fx);
+static AudioRingBuf<q31> ERBuf(ERData, ER_NETWORK_SIZE, &fx);
 
 typedef struct {
   uint16_t dl;
@@ -59,7 +59,7 @@ static const delayTap taps[NUM_ER_TAPS] = {
 //circular buffer to hold our delayed data from the filter network
 #define FILTER_DELAY 64
 L2DATA q31 filterDelayData[FILTER_DELAY * (AUDIO_BUFSIZE << 1)];
-static AudioRingBuf filterDelayBuf(filterDelayData, FILTER_DELAY, &fx);
+static AudioRingBuf<q31> filterDelayBuf(filterDelayData, FILTER_DELAY, &fx);
 
 RAMB q31 filterInputLeft[AUDIO_BUFSIZE], filterInputRight[AUDIO_BUFSIZE];
 RAMB q31 filterLeft[AUDIO_BUFSIZE], filterRight[AUDIO_BUFSIZE];
@@ -78,24 +78,24 @@ RAMB q31 filterLeft[AUDIO_BUFSIZE], filterRight[AUDIO_BUFSIZE];
 #define CF5_SIZE AUDIO_SEC_TO_BLOCKS(.078)
 
 L2DATA q31 cf0Data[CF0_SIZE * (AUDIO_BUFSIZE << 1)];
-static AudioRingBuf cf0Buf(cf0Data, CF0_SIZE, &fx);
+static AudioRingBuf<q31> cf0Buf(cf0Data, CF0_SIZE, &fx);
 
 L2DATA q31 cf1Data[CF1_SIZE * (AUDIO_BUFSIZE << 1)];
-static AudioRingBuf cf1Buf(cf1Data, CF1_SIZE, &fx);
+static AudioRingBuf<q31> cf1Buf(cf1Data, CF1_SIZE, &fx);
 
 L2DATA q31 cf2Data[CF2_SIZE * (AUDIO_BUFSIZE << 1)];
-static AudioRingBuf cf2Buf(cf2Data, CF2_SIZE, &fx);
+static AudioRingBuf<q31> cf2Buf(cf2Data, CF2_SIZE, &fx);
 
 L2DATA q31 cf3Data[CF3_SIZE * (AUDIO_BUFSIZE << 1)];
-static AudioRingBuf cf3Buf(cf3Data, CF3_SIZE, &fx);
+static AudioRingBuf<q31> cf3Buf(cf3Data, CF3_SIZE, &fx);
 
 L2DATA q31 cf4Data[CF4_SIZE * (AUDIO_BUFSIZE << 1)];
-static AudioRingBuf cf4Buf(cf4Data, CF4_SIZE, &fx);
+static AudioRingBuf<q31> cf4Buf(cf4Data, CF4_SIZE, &fx);
 
 L2DATA q31 cf5Data[CF5_SIZE * (AUDIO_BUFSIZE << 1)];
-static AudioRingBuf cf5Buf(cf5Data, CF5_SIZE, &fx);
+static AudioRingBuf<q31> cf5Buf(cf5Data, CF5_SIZE, &fx);
 
-static AudioRingBuf *combFilters[NUM_COMB_FILTERS] = { &cf0Buf, &cf1Buf, &cf2Buf, &cf3Buf, &cf4Buf, &cf5Buf };
+static AudioRingBuf<q31> *combFilters[NUM_COMB_FILTERS] = { &cf0Buf, &cf1Buf, &cf2Buf, &cf3Buf, &cf4Buf, &cf5Buf };
 
 /*************************************************************
           FIR FILTER

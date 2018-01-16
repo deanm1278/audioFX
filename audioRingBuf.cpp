@@ -32,7 +32,7 @@ void AudioRingBuf<T>::resize(uint32_t size)
 template <class T>
 void AudioRingBuf<T>::pushInterleaved(T *data)
 {
-	_fx->_arb.queue(head, data, sizeof(T), sizeof(T), AUDIO_BUFSIZE << 1, sizeof(T) );
+	_fx->_arb.queue(head, data, sizeof(T), sizeof(T), AUDIO_BUFSIZE << 1, sizeof(T));
 
 	head += (AUDIO_BUFSIZE << 1);
 	count++;

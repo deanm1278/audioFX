@@ -9,47 +9,51 @@
 #include "audioRingBuf.h"
 #include "variant.h"
 
-AudioRingBuf::AudioRingBuf(int32_t *buf, uint32_t size, AudioFX *fx, uint32_t addrOffset)
+template <class T>
+AudioRingBuf<T>::AudioRingBuf(T *buf, uint32_t size, AudioFX *fx, uint32_t addrOffset)
 {
 	startAddr = (uint32_t)buf;
-	head = (int32_t *)startAddr;
-	tail = (int32_t *)startAddr;
+	head = (T *)startAddr;
+	tail = (T *)startAddr;
 
-	//TODO: assert that end isn't past the end of l2 memory
-	end = (int32_t *)(startAddr + (AUDIO_BUFSIZE << 1) * sizeof(int32_t) * size);
+	end = (T *)(startAddr + (AUDIO_BUFSIZE << 1) * sizeof(T) * size);
 	count = 0;
 	cap = size;
 	_fx = fx;
 }
 
-void AudioRingBuf::resize(uint32_t size)
+template <class T>
+void AudioRingBuf<T>::resize(uint32_t size)
 {
-	//TODO: assert that end isn't past the end of l2 memory
-	end = (int32_t *)(startAddr + (AUDIO_BUFSIZE << 1) * sizeof(int32_t) * size);
+	end = (T *)(startAddr + (AUDIO_BUFSIZE << 1) * sizeof(T) * size);
 	cap = size;
 }
 
-void AudioRingBuf::pushInterleaved(int32_t *data)
+template <class T>
+void AudioRingBuf<T>::pushInterleaved(T *data)
 {
-	_fx->_arb.queue(head, data, sizeof(int32_t), sizeof(int32_t), AUDIO_BUFSIZE << 1);
+	_fx->_arb.queue(head, data, sizeof(T), sizeof(T), AUDIO_BUFSIZE << 1, sizeof(T));
 
 	head += (AUDIO_BUFSIZE << 1);
 	count++;
-	if(head == end) head = (int32_t *)startAddr;
+	if(head == end) head = (T *)startAddr;
 }
 
-void AudioRingBuf::push(int32_t *leftBlock, int32_t *rightBlock)
+template <class T>
+void AudioRingBuf<T>::push(T *leftBlock, T *rightBlock)
 {
-	_fx->interleave(head, leftBlock, rightBlock);
+	_fx->_arb.queue(head, leftBlock, sizeof(T) * 2, sizeof(T), AUDIO_BUFSIZE, sizeof(T));
+	_fx->_arb.queue(head + 1, rightBlock, sizeof(T) * 2, sizeof(T), AUDIO_BUFSIZE, sizeof(T));
 
 	head += (AUDIO_BUFSIZE << 1);
 	count++;
-	if(head == end) head = (int32_t *)startAddr;
+	if(head == end) head = (T *)startAddr;
 }
 
-void AudioRingBuf::pushCore(int32_t *leftBlock, int32_t *rightBlock)
+template <class T>
+void AudioRingBuf<T>::pushCore(T *leftBlock, T *rightBlock)
 {
-	int32_t *ptr = head;
+	T *ptr = head;
 	for(int i=0; i<AUDIO_BUFSIZE; i++){
 		*ptr++ = *leftBlock++;
 		*ptr++ = *rightBlock++;
@@ -57,94 +61,89 @@ void AudioRingBuf::pushCore(int32_t *leftBlock, int32_t *rightBlock)
 
 	head += (AUDIO_BUFSIZE << 1);
 	count++;
-	if(head == end) head = (int32_t *)startAddr;
+	if(head == end) head = (T *)startAddr;
 }
 
-void AudioRingBuf::pop(int32_t *leftBlock, int32_t *rightBlock)
+template <class T>
+void AudioRingBuf<T>::pop(T *leftBlock, T *rightBlock)
 {
-	pop(leftBlock, rightBlock, NULL, NULL);
+	pop(leftBlock, rightBlock, NULL);
 }
 
-void AudioRingBuf::pop(int32_t *leftBlock, int32_t *rightBlock, void (*fn)(void), volatile bool *done)
+template <class T>
+void AudioRingBuf<T>::pop(T *leftBlock, T *rightBlock, void (*fn)(void))
 {
-	_fx->deinterleave(leftBlock, rightBlock, tail, fn, done);
+	_fx->_arb.queue(leftBlock, tail, sizeof(T), sizeof(T) * 2, AUDIO_BUFSIZE, sizeof(T));
+	_fx->_arb.queue(rightBlock, tail + 1, sizeof(T), sizeof(T) * 2, AUDIO_BUFSIZE, sizeof(T), fn);
 
 	tail += (AUDIO_BUFSIZE << 1);
 	count--;
-	if(tail == end) tail = (int32_t *)startAddr;
+	if(tail == end) tail = (T *)startAddr;
 }
 
-void AudioRingBuf::pop(int32_t *leftBlock, int32_t *rightBlock, void (*fn)(void))
-{
-	pop(leftBlock, rightBlock, fn, NULL);
-}
+template <class T>
+void AudioRingBuf<T>::popCore(T *leftBlock, T *rightBlock){
 
-void AudioRingBuf::pop(int32_t *leftBlock, int32_t *rightBlock, volatile bool *done)
-{
-	pop(leftBlock, rightBlock, NULL, done);
-}
-
-void AudioRingBuf::popCore(int32_t *leftBlock, int32_t *rightBlock){
-
-	int32_t *ptr = tail;
+	T *ptr = tail;
 	for(int i=0; i<AUDIO_BUFSIZE; i++){
 		*leftBlock++ = *ptr++;
 		*rightBlock++ = *ptr++;
 	}
 	tail += (AUDIO_BUFSIZE << 1);
 	count--;
-	if(tail == end) tail = (int32_t *)startAddr;
+	if(tail == end) tail = (T *)startAddr;
 }
 
-void AudioRingBuf::peek(int32_t *leftBlock, int32_t *rightBlock, uint32_t offset){
-	peek(leftBlock, rightBlock, offset, NULL);
-}
-
-void AudioRingBuf::peek(int32_t *leftBlock, int32_t *rightBlock, uint32_t offset, volatile bool *done)
+template <class T>
+void AudioRingBuf<T>::peek(T *leftBlock, T *rightBlock, uint32_t offset)
 {
-	int32_t *ptr;
+	T *ptr;
 	uint32_t distFromEnd = (end - tail) / (AUDIO_BUFSIZE << 1);
 
 	if(offset >= distFromEnd) {
-		ptr = (int32_t *)startAddr + (AUDIO_BUFSIZE << 1) * (offset - distFromEnd);
+		ptr = (T *)startAddr + (AUDIO_BUFSIZE << 1) * (offset - distFromEnd);
 	}
 	else ptr = tail + (AUDIO_BUFSIZE << 1) * offset;
 
-	_fx->deinterleave(leftBlock, rightBlock, ptr, NULL, done);
+	_fx->_arb.queue(leftBlock, ptr, sizeof(T), sizeof(T) * 2, AUDIO_BUFSIZE, sizeof(T));
+	_fx->_arb.queue(rightBlock, ptr + 1, sizeof(T), sizeof(T) * 2, AUDIO_BUFSIZE, sizeof(T));
 }
 
-void AudioRingBuf::discard( void ){
+template <class T>
+void AudioRingBuf<T>::discard( void ){
 	//toss out the last sample
 	tail += (AUDIO_BUFSIZE << 1);
 	count--;
-	if(tail == end) tail = (int32_t *)startAddr;
+	if(tail == end) tail = (T *)startAddr;
 }
 
-void AudioRingBuf::peekCore(int32_t *leftBlock, int32_t *rightBlock, uint32_t offset){
+template <class T>
+void AudioRingBuf<T>::peekCore(T *leftBlock, T *rightBlock, uint32_t offset){
 
-	int32_t *ptr;
+	T *ptr;
 	uint32_t distFromEnd = (end - tail) / (AUDIO_BUFSIZE << 1);
 
 	if(offset >= distFromEnd) {
-		ptr = (int32_t *)startAddr + (AUDIO_BUFSIZE << 1) * (offset - distFromEnd);
+		ptr = (T *)startAddr + (AUDIO_BUFSIZE << 1) * (offset - distFromEnd);
 	}
 	else ptr = tail + (AUDIO_BUFSIZE << 1) * offset;
 
 	//if(offset > distFromEnd) asm volatile("EMUEXCPT;");
 
-	int32_t *l = leftBlock;
-	int32_t *r = rightBlock;
+	T *l = leftBlock;
+	T *r = rightBlock;
 	for(int i=0; i<AUDIO_BUFSIZE; i++){
 		*l++ = *ptr++;
 		*r++ = *ptr++;
 	}
 }
 
-void AudioRingBuf::peekHeadCore(int32_t *leftBlock, int32_t *rightBlock, uint32_t offset){
+template <class T>
+void AudioRingBuf<T>::peekHeadCore(T *leftBlock, T *rightBlock, uint32_t offset){
 
-	int32_t *ptr;
+	T *ptr;
 	offset = offset + 1;
-	uint32_t distFromStart = ((uint32_t)head - startAddr) / (AUDIO_BUFSIZE << 3);
+	uint32_t distFromStart = ((uint32_t)head - startAddr) / ((AUDIO_BUFSIZE << 1) * sizeof(T));
 
 	if(offset > distFromStart) {
 		ptr = end - (AUDIO_BUFSIZE << 1) * (offset - distFromStart);
@@ -153,24 +152,25 @@ void AudioRingBuf::peekHeadCore(int32_t *leftBlock, int32_t *rightBlock, uint32_
 
 	//if(offset > distFromEnd) asm volatile("EMUEXCPT;");
 
-	int32_t *l = leftBlock;
-	int32_t *r = rightBlock;
+	T *l = leftBlock;
+	T *r = rightBlock;
 	for(int i=0; i<AUDIO_BUFSIZE; i++){
 		*l++ = *ptr++;
 		*r++ = *ptr++;
 	}
 }
 
-void AudioRingBuf::peekHeadSamples(int32_t *left, int32_t *right, uint32_t offset, uint32_t size, void (*fn)(void)){
-	int32_t *ptr, *lastBlock;
+template <class T>
+void AudioRingBuf<T>::peekHeadSamples(T *left, T *right, uint32_t offset, uint32_t size, void (*fn)(void)){
+	T *ptr, *lastBlock;
 	uint32_t distFromStart;
 
-	if(head == (int32_t *)startAddr)
+	if(head == (T *)startAddr)
 		lastBlock = end - (AUDIO_BUFSIZE << 1);
 	else
 		lastBlock = head - (AUDIO_BUFSIZE << 1);
 
-	distFromStart = ((uint32_t)lastBlock - startAddr) >> 2;
+	distFromStart = ((uint32_t)lastBlock - startAddr) / sizeof(T);
 
 	//samples are interleaved
 	offset = (offset + size) << 1;
@@ -180,21 +180,26 @@ void AudioRingBuf::peekHeadSamples(int32_t *left, int32_t *right, uint32_t offse
 	}
 	else ptr = lastBlock - offset;
 
-	int32_t *end_addr = (ptr + (size << 1) );
+//TODO: fix this
+#if 0
+	T *end_addr = (ptr + (size << 1) );
 	if( end_addr > end ){
+#endif
 		//hard to synchronize, for now lets take the CPU hit
 		//uint32_t diff = (end_addr - end) >> 1;
 
 		while(size > 0){
-			if(ptr == end) ptr = (int32_t *)startAddr;
+			if(ptr == end) ptr = (T *)startAddr;
 			*left++ = *ptr++;
 			*right++ = *ptr++;
 			size--;
 		}
 		fn();
+#if 0
 	}
 	else{
-		_fx->_arb.queue(left, ptr, sizeof(int32_t), (sizeof(int32_t) << 1), size);
-		_fx->_arb.queue(right, ptr + 1, sizeof(int32_t), (sizeof(int32_t) << 1), size, fn);
+		_fx->_arb.queue(left, ptr, sizeof(T), (sizeof(T) << 1), size, sizeof(T));
+		_fx->_arb.queue(right, ptr + 1, sizeof(T), (sizeof(T) << 1), size, sizeof(T), fn);
 	}
+#endif
 }

@@ -54,6 +54,13 @@ bool AudioFX::begin( void )
 	//begin the MCLK
 	_tmr.begin(FS*128);
 
+	/*
+	//enable trigger for the timer
+	TRU0->GCTL.bit.EN = 1;
+	TRU0->SSR24.bit.SSR = 6;
+	TIMER0->TRG_MSK.bit.TMR04 = 0;
+	*/
+
 	//begin i2s
 	I2S::begin(BCLK, FS, WLEN);
 
@@ -85,11 +92,14 @@ bool AudioFX::begin( void )
 
 	_arb.begin();
 
+	//wait for MCLK trigger
+	//DMA[SPORT0_A_DMA]->CFG.bit.TWAIT = 1;
+
 	DMA[SPORT0_A_DMA]->CFG.bit.EN = DMA_CFG_ENABLE;
 	DMA[SPORT0_B_DMA]->CFG.bit.EN = DMA_CFG_ENABLE;
 
 	enableIRQ(29);
-	setIRQPriority(29, IRQ_MAX_PRIORITY >> 1);
+	setIRQPriority(29, IRQ_MAX_PRIORITY);
 
 	return true;
 }
@@ -115,19 +125,19 @@ void AudioFX::processBuffer( void )
 
 void AudioFX::interleave(int32_t *dest, int32_t * left, int32_t *right)
 {
-	_arb.queue(dest, left, sizeof(int32_t) * 2, sizeof(int32_t));
-	_arb.queue(dest + 1, right, sizeof(int32_t) * 2, sizeof(int32_t));
+	_arb.queue(dest, left, sizeof(int32_t) * 2, sizeof(int32_t), AUDIO_BUFSIZE, sizeof(int32_t));
+	_arb.queue(dest + 1, right, sizeof(int32_t) * 2, sizeof(int32_t), AUDIO_BUFSIZE, sizeof(int32_t));
 }
 
-void AudioFX::deinterleave(int32_t * left, int32_t *right, int32_t *src, void (*cb)(void), volatile bool *done)
+void AudioFX::deinterleave(int32_t * left, int32_t *right, int32_t *src, void (*cb)(void))
 {
-	_arb.queue(left, src, sizeof(int32_t), sizeof(int32_t) * 2);
-	_arb.queue(right, src + 1, sizeof(int32_t), sizeof(int32_t) * 2, AUDIO_BUFSIZE, cb, done);
+	_arb.queue(left, src, sizeof(int32_t), sizeof(int32_t) * 2, AUDIO_BUFSIZE, sizeof(int32_t));
+	_arb.queue(right, src + 1, sizeof(int32_t), sizeof(int32_t) * 2, AUDIO_BUFSIZE, sizeof(int32_t), cb);
 }
 
-void AudioFX::deinterleave(int32_t * left, int32_t *right, int32_t *src, volatile bool *done)
+void AudioFX::deinterleave(int32_t * left, int32_t *right, int32_t *src)
 {
-	deinterleave(left, right, src, NULL, done);
+	deinterleave(left, right, src, NULL);
 }
 
 void AudioFX::setCallback( void (*fn)(int32_t *, int32_t *) )

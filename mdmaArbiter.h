@@ -16,6 +16,7 @@
 struct mdmaJob {
 	uint32_t destAddr;
 	uint32_t srcAddr;
+	uint16_t elementSize;
 	uint32_t dstMod;
 	uint32_t srcMod;
 	uint32_t count;
@@ -39,10 +40,10 @@ public:
 
 	bool queue(void *dst, void *src);
 	bool queue(void *dst, void *src, void (*cb)(void));
-	bool queue(void *dst, void *src, uint32_t dstMod, uint32_t srcMod, volatile bool *done);
-	bool queue(void *dst, void *src, uint32_t dstMod, uint32_t srcMod, uint32_t count = AUDIO_BUFSIZE);
+	bool queue(void *dst, void *src, uint32_t dstMod, uint32_t srcMod);
 	bool queue(void *dst, void *src, uint32_t dstMod, uint32_t srcMod, uint32_t count, void (*cb)(void));
-	bool queue(void *dst, void *src, uint32_t dstMod, uint32_t srcMod, uint32_t count, void (*cb)(void), volatile bool *done);
+	bool queue(void *dst, void *src, uint32_t dstMod, uint32_t srcMod, uint32_t count = AUDIO_BUFSIZE, uint16_t elementSize = 4);
+	bool queue(void *dst, void *src, uint32_t dstMod, uint32_t srcMod, uint32_t count, uint16_t elementSize, void (*cb)(void));
 
 	static void runQueue( void );
 	static volatile struct mdmaChannel channels[NUM_MDMA_CHANNELS];

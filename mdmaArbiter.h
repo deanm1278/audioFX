@@ -13,15 +13,15 @@
 
 #define MAX_JOBS 16
 
+struct descriptorList {
+	DMADescriptor *list;
+	uint8_t length;
+};
+
 struct mdmaJob {
-	uint32_t destAddr;
-	uint32_t srcAddr;
-	uint16_t elementSize;
-	uint32_t dstMod;
-	uint32_t srcMod;
-	uint32_t count;
+	descriptorList dRead;
+	descriptorList dWrite;
 	void (*cb)(void);
-	volatile bool *done;
 };
 
 struct mdmaChannel {
@@ -30,13 +30,13 @@ struct mdmaChannel {
 	uint8_t IRQ;
 	volatile bool available;
 	void (*cb)(void);
-	volatile bool *done;
+	DMADescriptor *dReadList;
+	DMADescriptor *dWriteList;
 };
 
 class MdmaArbiter {
 public:
 	MdmaArbiter( void );
-	bool begin( void );
 
 	bool queue(void *dst, void *src);
 	bool queue(void *dst, void *src, void (*cb)(void));

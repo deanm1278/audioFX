@@ -90,8 +90,6 @@ bool AudioFX::begin( void )
 	DMA[SPORT0_A_DMA]->CFG.bit.PSIZE = DMA_CFG_PSIZE_4_BYTES;
 	DMA[SPORT0_A_DMA]->CFG.bit.INT = DMA_CFG_INT_PERIPHERAL;
 
-	_arb.begin();
-
 	//wait for MCLK trigger
 	//DMA[SPORT0_A_DMA]->CFG.bit.TWAIT = 1;
 

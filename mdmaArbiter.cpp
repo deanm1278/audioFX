@@ -32,50 +32,71 @@ bool MdmaArbiter::queue(void *dst, void *src, uint32_t dstMod, uint32_t srcMod,
 		return false;
 	}
 
-	//TODO: generate more descriptors based on element size
-	DMADescriptor *dr = (DMADescriptor *)malloc(sizeof(DMADescriptor));
-	DMADescriptor *dw = (DMADescriptor *)malloc(sizeof(DMADescriptor));
-	dr->ADDRSTART.reg = (uint32_t)src;
-	dr->CFG.bit.FLOW = DMA_CFG_FLOW_STOP;
-	dr->CFG.bit.EN = DMA_CFG_ENABLE;
-	dr->CFG.bit.WNR = DMA_CFG_WNR_READ_FROM_MEM;
-	dr->XCNT.reg = count;
-	dr->XMOD.reg = srcMod;
-	//TODO: set addr of next descriptor
-
-	dw->ADDRSTART.reg = (uint32_t)dst;
-	dw->CFG.bit.FLOW = DMA_CFG_FLOW_STOP;
-	dw->CFG.bit.EN = DMA_CFG_ENABLE;
-	dw->CFG.bit.WNR = DMA_CFG_WNR_WRITE_TO_MEM;
-	dw->XCNT.reg = count;
-	dw->CFG.bit.INT = DMA_CFG_INT_X_COUNT;
-	dw->XMOD.reg = dstMod;
-	//TODO: set addr of next descriptor
-
+	uint8_t numDesc = ceil(elementSize / 4);
+	uint8_t msize;
 	switch(elementSize){
-		case 1:
-			dr->CFG.bit.MSIZE = DMA_MSIZE_1_BYTES;
-			dw->CFG.bit.MSIZE = DMA_MSIZE_1_BYTES;
-			break;
-		case 2:
-			dr->CFG.bit.MSIZE = DMA_MSIZE_2_BYTES;
-			dw->CFG.bit.MSIZE = DMA_MSIZE_2_BYTES;
-			break;
-		case 4:
-			dr->CFG.bit.MSIZE = DMA_MSIZE_4_BYTES;
-			dw->CFG.bit.MSIZE = DMA_MSIZE_4_BYTES;
-			break;
-		default:
+		case 0:
 			__asm__ volatile("EMUEXCPT;");
 			break;
+		case 1:
+			msize = DMA_MSIZE_1_BYTES;
+			break;
+		case 2:
+			msize = DMA_MSIZE_2_BYTES;
+			break;
+		default:
+			msize = DMA_MSIZE_4_BYTES;
+			break;
 	}
+
+	DMADescriptor *dr, *dw;
+
+	DMADescriptor *drList = (DMADescriptor *)malloc(sizeof(DMADescriptor) * numDesc);
+	DMADescriptor *dwList = (DMADescriptor *)malloc(sizeof(DMADescriptor) * numDesc);
+
+	for(int i=0; i<numDesc; i++){
+		dr = drList + i;
+		dw = dwList + i;
+
+		if(i == numDesc - 1){
+			//last descriptor, stop flow and interrupt
+			dr->CFG.bit.FLOW = DMA_CFG_FLOW_STOP;
+			dw->CFG.bit.FLOW = DMA_CFG_FLOW_STOP;
+			dw->CFG.bit.INT = DMA_CFG_INT_X_COUNT;
+		}
+		else{
+			dr->CFG.bit.FLOW = DMA_CFG_FLOW_DSCL;
+			dr->CFG.bit.NDSIZE = 4; //fetch 5 elements
+			dw->CFG.bit.FLOW = DMA_CFG_FLOW_DSCL;
+			dw->CFG.bit.NDSIZE = 4; //fetch 5 elements
+
+			dr->DSCPTR_NXT.reg = (uint32_t)(dr + 1);
+			dw->DSCPTR_NXT.reg = (uint32_t)(dw + 1);
+		}
+
+		dr->ADDRSTART.reg = (uint32_t)(src + i*4);
+
+		dr->CFG.bit.EN = DMA_CFG_ENABLE;
+		dr->CFG.bit.WNR = DMA_CFG_WNR_READ_FROM_MEM;
+		dr->CFG.bit.MSIZE = msize;
+		dr->XCNT.reg = count;
+		dr->XMOD.reg = srcMod;
+
+		dw->ADDRSTART.reg = (uint32_t)(dst + i*4);
+
+		dw->CFG.bit.EN = DMA_CFG_ENABLE;
+		dw->CFG.bit.WNR = DMA_CFG_WNR_WRITE_TO_MEM;
+		dw->CFG.bit.MSIZE = msize;
+		dw->XCNT.reg = count;
+		dw->XMOD.reg = dstMod;
+	}
+
+
 	head->cb = cb;
 
-	head->dRead.length = 1;
-	head->dRead.list = dr;
+	head->dRead = drList;
 
-	head->dWrite.length = 1;
-	head->dWrite.list = dw;
+	head->dWrite = dwList;
 
 	if(head == &jobBuf[MAX_JOBS - 1]) head = jobBuf;
 	else head++;
@@ -121,15 +142,15 @@ void MdmaArbiter::runQueue( void )
 		if(ch == NULL) break;
 
 		ch->available = false;
-		ch->readChannel->DSCPTR_NXT.reg = (uint32_t)tail->dRead.list;
-		ch->writeChannel->DSCPTR_NXT.reg = (uint32_t)tail->dWrite.list;
+		ch->readChannel->DSCPTR_NXT.reg = (uint32_t)tail->dRead;
+		ch->writeChannel->DSCPTR_NXT.reg = (uint32_t)tail->dWrite;
 
 		ch->readChannel->CFG.reg = (4UL << 16) | (DMA_CFG_FLOW_DSCL << 12) | (DMA_MSIZE_4_BYTES << 8) | DMA_CFG_ENABLE;
 		ch->writeChannel->CFG.reg = (4UL << 16) | (DMA_CFG_FLOW_DSCL << 12) | (DMA_MSIZE_4_BYTES << 8) | (DMA_CFG_WNR_WRITE_TO_MEM << 1) | DMA_CFG_ENABLE;
 
 		ch->cb = tail->cb;
-		ch->dReadList = tail->dRead.list;
-		ch->dWriteList = tail->dWrite.list;
+		ch->dReadList = tail->dRead;
+		ch->dWriteList = tail->dWrite;
 
 		setIRQPriority(ch->IRQ, IRQ_MAX_PRIORITY >> 1);
 		enableIRQ(ch->IRQ);

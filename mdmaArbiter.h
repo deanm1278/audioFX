@@ -13,14 +13,9 @@
 
 #define MAX_JOBS 16
 
-struct descriptorList {
-	DMADescriptor *list;
-	uint8_t length;
-};
-
 struct mdmaJob {
-	descriptorList dRead;
-	descriptorList dWrite;
+	DMADescriptor *dRead;
+	DMADescriptor *dWrite;
 	void (*cb)(void);
 };
 

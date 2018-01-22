@@ -73,25 +73,41 @@ void AudioRingBuf<T>::pop(T *leftBlock, T *rightBlock)
 template <class T>
 void AudioRingBuf<T>::pop(T *leftBlock, T *rightBlock, void (*fn)(void))
 {
-	_fx->_arb.queue(leftBlock, tail, sizeof(T), sizeof(T) * 2, AUDIO_BUFSIZE, sizeof(T));
-	_fx->_arb.queue(rightBlock, tail + 1, sizeof(T), sizeof(T) * 2, AUDIO_BUFSIZE, sizeof(T), fn);
+	if(count > 0){
+		_fx->_arb.queue(leftBlock, tail, sizeof(T), sizeof(T) * 2, AUDIO_BUFSIZE, sizeof(T));
+		_fx->_arb.queue(rightBlock, tail + 1, sizeof(T), sizeof(T) * 2, AUDIO_BUFSIZE, sizeof(T), fn);
 
-	tail += (AUDIO_BUFSIZE << 1);
-	count--;
-	if(tail == end) tail = (T *)startAddr;
+		tail += (AUDIO_BUFSIZE << 1);
+		count--;
+		if(tail == end) tail = (T *)startAddr;
+	}
 }
 
 template <class T>
-void AudioRingBuf<T>::popCore(T *leftBlock, T *rightBlock){
-
-	T *ptr = tail;
-	for(int i=0; i<AUDIO_BUFSIZE; i++){
-		*leftBlock++ = *ptr++;
-		*rightBlock++ = *ptr++;
+void AudioRingBuf<T>::popCore(T *leftBlock, T *rightBlock)
+{
+	if(count > 0){
+		T *ptr = tail;
+		for(int i=0; i<AUDIO_BUFSIZE; i++){
+			*leftBlock++ = *ptr++;
+			*rightBlock++ = *ptr++;
+		}
+		tail += (AUDIO_BUFSIZE << 1);
+		count--;
+		if(tail == end) tail = (T *)startAddr;
 	}
-	tail += (AUDIO_BUFSIZE << 1);
-	count--;
-	if(tail == end) tail = (T *)startAddr;
+}
+
+template <class T>
+void AudioRingBuf<T>::popCoreInterleaved(T *data)
+{
+	if(count > 0){
+		memcpy(data, tail, (AUDIO_BUFSIZE << 1) * sizeof(T));
+
+		tail += (AUDIO_BUFSIZE << 1);
+		count--;
+		if(tail == end) tail = (T *)startAddr;
+	}
 }
 
 template <class T>
@@ -110,11 +126,25 @@ void AudioRingBuf<T>::peek(T *leftBlock, T *rightBlock, uint32_t offset)
 }
 
 template <class T>
+void AudioRingBuf<T>::clear( T *ptr )
+{
+	memset(ptr, 0, sizeof(T) * (AUDIO_BUFSIZE << 1));
+}
+
+template <class T>
 void AudioRingBuf<T>::discard( void ){
 	//toss out the last sample
 	tail += (AUDIO_BUFSIZE << 1);
 	count--;
 	if(tail == end) tail = (T *)startAddr;
+}
+
+template <class T>
+void AudioRingBuf<T>::bump( void ){
+	//toss out the last sample
+	head += (AUDIO_BUFSIZE << 1);
+	count++;
+	if(head == end) head = (T *)startAddr;
 }
 
 template <class T>
@@ -158,6 +188,34 @@ void AudioRingBuf<T>::peekHeadCore(T *leftBlock, T *rightBlock, uint32_t offset)
 		*l++ = *ptr++;
 		*r++ = *ptr++;
 	}
+}
+
+template <class T>
+T *AudioRingBuf<T>::peekPtrHead(uint32_t offset){
+	T *ptr, *lastBlock;
+	uint32_t distFromStart;
+
+	if(head == (T *)startAddr)
+		lastBlock = end - (AUDIO_BUFSIZE << 1);
+	else
+		lastBlock = head - (AUDIO_BUFSIZE << 1);
+
+	distFromStart = ((uint32_t)lastBlock - startAddr) / (sizeof(T) * (AUDIO_BUFSIZE << 1) );
+
+	if(offset > distFromStart) {
+		ptr = end - (AUDIO_BUFSIZE << 1) - ( (offset - distFromStart) * (AUDIO_BUFSIZE << 1) );
+	}
+	else ptr = lastBlock - (offset * (AUDIO_BUFSIZE << 1) );
+
+	return ptr;
+}
+
+template <class T>
+void AudioRingBuf<T>::peekHead(T *left, T *right, uint32_t offset, void (*fn)(void)){
+	T *ptr = peekPtrHead(offset);
+
+	_fx->_arb.queue(left, ptr, sizeof(T), (sizeof(T) << 1), AUDIO_BUFSIZE, sizeof(T));
+	_fx->_arb.queue(right, ptr + 1, sizeof(T), (sizeof(T) << 1), AUDIO_BUFSIZE, sizeof(T), fn);
 }
 
 template <class T>

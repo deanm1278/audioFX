@@ -54,13 +54,11 @@ void audioHook(q31 *data)
   fft.fft(inputR, inputR, AUDIO_BUFSIZE);
 
   //save to delay buffer
-  //TODO: use DMA once ring buffer is updated
-  convBuf.pushCore(inputL, inputR);
+  convBuf.push(inputL, inputR);
 
   //if the buffer is full, pop out delayed signal
   if(convBuf.full()){
-    //TODO: use DMA once ring buffer is updated
-    convBuf.popCore(outputL, outputR);
+    convBuf.pop(outputL, outputR);
     delayDataReady();
   }
 }

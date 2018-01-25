@@ -148,8 +148,7 @@ void AudioRingBuf<T>::bump( void ){
 }
 
 template <class T>
-void AudioRingBuf<T>::peekCore(T *leftBlock, T *rightBlock, uint32_t offset){
-
+T *AudioRingBuf<T>::peekPtr(uint32_t offset){
 	T *ptr;
 	uint32_t distFromEnd = (end - tail) / (AUDIO_BUFSIZE << 1);
 
@@ -157,6 +156,14 @@ void AudioRingBuf<T>::peekCore(T *leftBlock, T *rightBlock, uint32_t offset){
 		ptr = (T *)startAddr + (AUDIO_BUFSIZE << 1) * (offset - distFromEnd);
 	}
 	else ptr = tail + (AUDIO_BUFSIZE << 1) * offset;
+
+	return ptr;
+}
+
+template <class T>
+void AudioRingBuf<T>::peekCore(T *leftBlock, T *rightBlock, uint32_t offset){
+
+	T *ptr = peekPtr(offset);
 
 	//if(offset > distFromEnd) asm volatile("EMUEXCPT;");
 

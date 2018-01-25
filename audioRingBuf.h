@@ -15,6 +15,7 @@ public:
 	AudioRingBuf(T *buf, uint32_t size, AudioFX *fx, uint32_t addrOffset = 0);
 	void resize(uint32_t size);
 
+	T *peekPtr(uint32_t offset);
 	T *peekPtrHead(uint32_t offset);
 
 	//non-blocking push and pop
@@ -49,6 +50,7 @@ public:
 	bool full( void ) { return count == cap; }
 	bool empty( void ) { return count == 0; }
 	uint32_t getCount( void ) { return count; }
+	void setCount(uint32_t c) { count  = c; }
 	T *getTail( void ){ return tail; }
 	T *getHead( void ){ return head; }
 

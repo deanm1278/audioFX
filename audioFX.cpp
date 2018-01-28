@@ -22,12 +22,10 @@
 
 #define MCLK_PIN 2
 
-struct audioBuf {
-	int32_t data[AUDIO_BUFSIZE << 1];
-};
+typedef int32_t audioBuf[AUDIO_BUFSIZE << 1];
 
-static struct audioBuf buffers[3];
-static audioBuf *inBuf, *outBuf, *procBuf;
+static audioBuf buffers[3];
+static audioBuf *procBuf;
 
 static int32_t procLeft[AUDIO_BUFSIZE];
 static int32_t procRight[AUDIO_BUFSIZE];
@@ -39,14 +37,58 @@ void (*AudioFX::audioHook)(int32_t *);
 Timer AudioFX::_tmr(MCLK_PIN);
 MdmaArbiter AudioFX::_arb;
 
+DMADescriptor dRead0, dRead1, dRead2, dWrite0, dWrite1, dWrite2;
+
+static DMADescriptor *dRead[3];
+static DMADescriptor *dWrite[3];
+
+static volatile uint8_t intCount = 0;
+
 AudioFX::AudioFX( void ) : I2S(SPORT0, BCLK_PIN, FS_PIN, AD0_PIN, BD0_PIN)
 {
-	inBuf = &buffers[0];
-	outBuf = &buffers[1];
-	procBuf = &buffers[2];
 	bufReady = false;
 	audioCallback = NULL;
 	audioHook = NULL;
+
+	dRead0.CFG.reg =  (4UL << 16) | (DMA_CFG_FLOW_DSCL << 12) | (DMA_MSIZE_4_BYTES << 8) |
+			(DMA_CFG_PSIZE_4_BYTES << 4) | (DMA_CFG_WNR_READ_FROM_MEM << 1) | DMA_CFG_ENABLE;
+	dRead0.XCNT.reg = AUDIO_BUFSIZE << 1;
+	dRead0.XMOD.reg = 4;
+	memcpy(&dRead1, &dRead0, sizeof(DMADescriptor));
+	memcpy(&dRead2, &dRead0, sizeof(DMADescriptor));
+
+	dRead0.DSCPTR_NXT.reg = (uint32_t)&dRead1;
+	dRead0.ADDRSTART.reg = (uint32_t)buffers[0];
+
+	dRead1.DSCPTR_NXT.reg = (uint32_t)&dRead2;
+	dRead1.ADDRSTART.reg = (uint32_t)buffers[1];
+
+	dRead2.DSCPTR_NXT.reg = (uint32_t)&dRead0;
+	dRead2.ADDRSTART.reg = (uint32_t)buffers[2];
+
+	dRead[0] = &dRead0;
+	dRead[1] = &dRead1;
+	dRead[2] = &dRead2;
+
+	dWrite0.CFG.reg = (DMA_CFG_INT_X_COUNT << 20) | (4UL << 16) | (DMA_CFG_FLOW_DSCL << 12) | (DMA_MSIZE_4_BYTES << 8) |
+				(DMA_CFG_PSIZE_4_BYTES << 4) | (DMA_CFG_WNR_WRITE_TO_MEM << 1) | DMA_CFG_ENABLE;
+	dWrite0.XCNT.reg = AUDIO_BUFSIZE << 1;
+	dWrite0.XMOD.reg = 4;
+	memcpy(&dWrite1, &dWrite0, sizeof(DMADescriptor));
+	memcpy(&dWrite2, &dWrite0, sizeof(DMADescriptor));
+
+	dWrite0.DSCPTR_NXT.reg = (uint32_t)&dWrite1;
+	dWrite0.ADDRSTART.reg = (uint32_t)buffers[0];
+
+	dWrite1.DSCPTR_NXT.reg = (uint32_t)&dWrite2;
+	dWrite1.ADDRSTART.reg = (uint32_t)buffers[1];
+
+	dWrite2.DSCPTR_NXT.reg = (uint32_t)&dWrite0;
+	dWrite2.ADDRSTART.reg = (uint32_t)buffers[2];
+
+	dWrite[0] = &dWrite0;
+	dWrite[1] = &dWrite1;
+	dWrite[2] = &dWrite2;
 }
 
 bool AudioFX::begin( void )
@@ -64,40 +106,17 @@ bool AudioFX::begin( void )
 	//begin i2s
 	I2S::begin(BCLK, FS, WLEN);
 
-	//setup DMA buffers
-	DMA[SPORT0_B_DMA]->ADDRSTART.reg = (uint32_t)inBuf->data;
+	DMA[SPORT0_A_DMA]->DSCPTR_NXT.reg = (uint32_t)dRead[1];
+	DMA[SPORT0_A_DMA]->CFG.reg = (4UL << 16) | (DMA_CFG_FLOW_DSCL << 12) | (DMA_MSIZE_4_BYTES << 8) | (DMA_CFG_PSIZE_4_BYTES << 4) | DMA_CFG_ENABLE;
 
-	//TODO: set based on wordLength
-	DMA[SPORT0_B_DMA]->CFG.bit.MSIZE = DMA_MSIZE_4_BYTES;
-	DMA[SPORT0_B_DMA]->XCNT.reg = AUDIO_BUFSIZE << 1;
-	DMA[SPORT0_B_DMA]->XMOD.reg = 4; //4 bytes
-
-	DMA[SPORT0_B_DMA]->CFG.bit.WNR = DMA_CFG_WNR_WRITE_TO_MEM;
-
-	DMA[SPORT0_B_DMA]->CFG.bit.FLOW = DMA_CFG_FLOW_STOP;
-	DMA[SPORT0_B_DMA]->CFG.bit.PSIZE = DMA_CFG_PSIZE_4_BYTES;
-
-	DMA[SPORT0_A_DMA]->ADDRSTART.reg = (uint32_t)outBuf->data;
-
-	//TODO: set based on wordLength
-	DMA[SPORT0_A_DMA]->CFG.bit.MSIZE = DMA_MSIZE_4_BYTES;
-	DMA[SPORT0_A_DMA]->XCNT.reg = AUDIO_BUFSIZE << 1;
-	DMA[SPORT0_A_DMA]->XMOD.reg = 4; //4 bytes
-
-	DMA[SPORT0_A_DMA]->CFG.bit.WNR = DMA_CFG_WNR_READ_FROM_MEM;
-
-	DMA[SPORT0_A_DMA]->CFG.bit.FLOW = DMA_CFG_FLOW_STOP;
-	DMA[SPORT0_A_DMA]->CFG.bit.PSIZE = DMA_CFG_PSIZE_4_BYTES;
-	DMA[SPORT0_A_DMA]->CFG.bit.INT = DMA_CFG_INT_PERIPHERAL;
+	DMA[SPORT0_B_DMA]->DSCPTR_NXT.reg = (uint32_t)dWrite[0];
+	DMA[SPORT0_B_DMA]->CFG.reg = (4UL << 16) | (DMA_CFG_FLOW_DSCL << 12) | (DMA_MSIZE_4_BYTES << 8) | (DMA_CFG_PSIZE_4_BYTES << 4) | (DMA_CFG_WNR_WRITE_TO_MEM << 1)|  DMA_CFG_ENABLE;
 
 	//wait for MCLK trigger
 	//DMA[SPORT0_A_DMA]->CFG.bit.TWAIT = 1;
 
-	DMA[SPORT0_A_DMA]->CFG.bit.EN = DMA_CFG_ENABLE;
-	DMA[SPORT0_B_DMA]->CFG.bit.EN = DMA_CFG_ENABLE;
-
-	enableIRQ(29);
-	setIRQPriority(29, IRQ_MAX_PRIORITY);
+	enableIRQ(31);
+	setIRQPriority(31, IRQ_MAX_PRIORITY);
 
 	return true;
 }
@@ -108,7 +127,9 @@ void AudioFX::processBuffer( void )
 		if(audioCallback != NULL){
 			audioCallback(procLeft, procRight);
 			//re-interleave the buffers using the core now that we're done w/ our processing algo
-			int32_t *d = procBuf->data;
+			int32_t *d = *procBuf;
+
+			//TODO: this doesn't work rn
 			int32_t *l = procLeft;
 			int32_t *r = procRight;
 			for(int i=0; i<AUDIO_BUFSIZE; i++){
@@ -145,41 +166,32 @@ void AudioFX::setCallback( void (*fn)(int32_t *, int32_t *) )
 
 extern "C" {
 
-int SPORT0_A_DMA_Handler (int IQR_NUMBER )
+int SPORT0_B_DMA_Handler (int IQR_NUMBER )
 {
-	DMA[SPORT0_A_DMA]->CFG.bit.EN = DMA_CFG_DISABLE;
-	DMA[SPORT0_B_DMA]->CFG.bit.EN = DMA_CFG_DISABLE;
+	DMA[SPORT0_B_DMA]->STAT.bit.IRQDONE = 1;
+
+	procBuf = &buffers[intCount];
+
+	intCount = (intCount + 1) % 3;
 
 	//TODO: check for unfinished process buffer
 	//if(bufReady) asm volatile("EMUEXCPT;");
 
-	//rotate out the buffers
-	struct audioBuf *oldOutBuf = outBuf;
-
-	outBuf = procBuf;
-	procBuf = inBuf;
-	inBuf = oldOutBuf;
-
-	int32_t *d = outBuf->data;
-	int32_t *e = procBuf->data;
+	//TODO: prevent overflow somewhere else
+	//int32_t *d = buffers[(intCount + 1) % 3].data;
+	int32_t *e = *procBuf;
 	for(int i=0; i<(AUDIO_BUFSIZE << 1); i++){
 		*e++ = (*e << 8) / (1 << 8); //convert input to 24 bit 2s complement
 
 		//saturate output to 24 bit 2s complement
-		if(*d > (int32_t)0x7FFFFF) *d = (int32_t)0x7FFFFF;
-		else if(*d < (int32_t)-8388608) *d = (int32_t)-8388608;
-		d++;
+		//if(*d > (int32_t)0x7FFFFF) *d = (int32_t)0x7FFFFF;
+		//else if(*d < (int32_t)-8388608) *d = (int32_t)-8388608;
+		//d++;
 	}
-
-	DMA[SPORT0_B_DMA]->ADDRSTART.reg = (uint32_t)inBuf;
-	DMA[SPORT0_A_DMA]->ADDRSTART.reg = (uint32_t)outBuf;
-
-	DMA[SPORT0_A_DMA]->CFG.bit.EN = DMA_CFG_ENABLE;
-	DMA[SPORT0_B_DMA]->CFG.bit.EN = DMA_CFG_ENABLE;
 
 	bufReady = true;
 
-	if(AudioFX::audioHook != NULL) AudioFX::audioHook(procBuf->data);
+	if(AudioFX::audioHook != NULL) AudioFX::audioHook(*procBuf);
 
 	return IQR_NUMBER;
 }

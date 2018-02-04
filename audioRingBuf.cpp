@@ -9,6 +9,8 @@
 #include "audioRingBuf.h"
 #include "variant.h"
 
+static uint32_t zero[4] = {0, 0, 0, 0};
+
 template <class T>
 AudioRingBuf<T>::AudioRingBuf(T *buf, uint32_t size, AudioFX *fx, uint32_t addrOffset)
 {
@@ -30,12 +32,12 @@ void AudioRingBuf<T>::resize(uint32_t size)
 }
 
 template <class T>
-void AudioRingBuf<T>::pushInterleaved(T *data)
+void AudioRingBuf<T>::push(T *data)
 {
 	_fx->_arb.queue(head, data, sizeof(T), sizeof(T), AUDIO_BUFSIZE << 1, sizeof(T));
 
 	head += (AUDIO_BUFSIZE << 1);
-	count++;
+	count = min(cap, count+1);
 	if(head == end) head = (T *)startAddr;
 }
 
@@ -46,12 +48,12 @@ void AudioRingBuf<T>::push(T *leftBlock, T *rightBlock)
 	_fx->_arb.queue(head + 1, rightBlock, sizeof(T) * 2, sizeof(T), AUDIO_BUFSIZE, sizeof(T));
 
 	head += (AUDIO_BUFSIZE << 1);
-	count++;
+	count = min(cap, count+1);
 	if(head == end) head = (T *)startAddr;
 }
 
 template <class T>
-void AudioRingBuf<T>::pushCore(T *leftBlock, T *rightBlock)
+void AudioRingBuf<T>::pushSync(T *leftBlock, T *rightBlock)
 {
 	T *ptr = head;
 	for(int i=0; i<AUDIO_BUFSIZE; i++){
@@ -60,7 +62,7 @@ void AudioRingBuf<T>::pushCore(T *leftBlock, T *rightBlock)
 	}
 
 	head += (AUDIO_BUFSIZE << 1);
-	count++;
+	count = min(cap, count+1);;
 	if(head == end) head = (T *)startAddr;
 }
 
@@ -84,7 +86,7 @@ void AudioRingBuf<T>::pop(T *leftBlock, T *rightBlock, void (*fn)(void))
 }
 
 template <class T>
-void AudioRingBuf<T>::popCore(T *leftBlock, T *rightBlock)
+void AudioRingBuf<T>::popSync(T *leftBlock, T *rightBlock)
 {
 	if(count > 0){
 		T *ptr = tail;
@@ -99,7 +101,7 @@ void AudioRingBuf<T>::popCore(T *leftBlock, T *rightBlock)
 }
 
 template <class T>
-void AudioRingBuf<T>::popCoreInterleaved(T *data)
+void AudioRingBuf<T>::popSync(T *data)
 {
 	if(count > 0){
 		memcpy(data, tail, (AUDIO_BUFSIZE << 1) * sizeof(T));
@@ -128,7 +130,8 @@ void AudioRingBuf<T>::peek(T *leftBlock, T *rightBlock, uint32_t offset)
 template <class T>
 void AudioRingBuf<T>::clear( T *ptr )
 {
-	memset(ptr, 0, sizeof(T) * (AUDIO_BUFSIZE << 1));
+	//memset(ptr, 0, sizeof(T) * (AUDIO_BUFSIZE << 1));
+	_fx->_arb.queue(ptr, zero, sizeof(T), 0, AUDIO_BUFSIZE << 1, sizeof(T));
 }
 
 template <class T>
@@ -143,12 +146,12 @@ template <class T>
 void AudioRingBuf<T>::bump( void ){
 	//toss out the last sample
 	head += (AUDIO_BUFSIZE << 1);
-	count++;
+	count = min(cap, count+1);;
 	if(head == end) head = (T *)startAddr;
 }
 
 template <class T>
-T *AudioRingBuf<T>::peekPtr(uint32_t offset){
+T *AudioRingBuf<T>::peek(uint32_t offset){
 	T *ptr;
 	uint32_t distFromEnd = (end - tail) / (AUDIO_BUFSIZE << 1);
 
@@ -161,9 +164,9 @@ T *AudioRingBuf<T>::peekPtr(uint32_t offset){
 }
 
 template <class T>
-void AudioRingBuf<T>::peekCore(T *leftBlock, T *rightBlock, uint32_t offset){
+void AudioRingBuf<T>::peekSync(T *leftBlock, T *rightBlock, uint32_t offset){
 
-	T *ptr = peekPtr(offset);
+	T *ptr = peek(offset);
 
 	//if(offset > distFromEnd) asm volatile("EMUEXCPT;");
 
@@ -176,7 +179,7 @@ void AudioRingBuf<T>::peekCore(T *leftBlock, T *rightBlock, uint32_t offset){
 }
 
 template <class T>
-void AudioRingBuf<T>::peekHeadCore(T *leftBlock, T *rightBlock, uint32_t offset){
+void AudioRingBuf<T>::peekBackSync(T *leftBlock, T *rightBlock, uint32_t offset){
 
 	T *ptr;
 	offset = offset + 1;
@@ -198,7 +201,7 @@ void AudioRingBuf<T>::peekHeadCore(T *leftBlock, T *rightBlock, uint32_t offset)
 }
 
 template <class T>
-T *AudioRingBuf<T>::peekPtrHead(uint32_t offset){
+T *AudioRingBuf<T>::peekBack(uint32_t offset){
 	T *ptr, *lastBlock;
 	uint32_t distFromStart;
 
@@ -218,15 +221,15 @@ T *AudioRingBuf<T>::peekPtrHead(uint32_t offset){
 }
 
 template <class T>
-void AudioRingBuf<T>::peekHead(T *left, T *right, uint32_t offset, void (*fn)(void)){
-	T *ptr = peekPtrHead(offset);
+void AudioRingBuf<T>::peekBack(T *left, T *right, uint32_t offset, void (*fn)(void)){
+	T *ptr = peekBack(offset);
 
 	_fx->_arb.queue(left, ptr, sizeof(T), (sizeof(T) << 1), AUDIO_BUFSIZE, sizeof(T));
 	_fx->_arb.queue(right, ptr + 1, sizeof(T), (sizeof(T) << 1), AUDIO_BUFSIZE, sizeof(T), fn);
 }
 
 template <class T>
-void AudioRingBuf<T>::peekHeadSamples(T *left, T *right, uint32_t offset, uint32_t size, void (*fn)(void)){
+void AudioRingBuf<T>::peekBack(T *left, T *right, uint32_t offset, uint32_t size, void (*fn)(void)){
 	T *ptr, *lastBlock;
 	uint32_t distFromStart;
 

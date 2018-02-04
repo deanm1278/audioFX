@@ -15,35 +15,38 @@ public:
 	AudioRingBuf(T *buf, uint32_t size, AudioFX *fx, uint32_t addrOffset = 0);
 	void resize(uint32_t size);
 
-	T *peekPtr(uint32_t offset);
-	T *peekPtrHead(uint32_t offset);
-
 	//non-blocking push and pop
 	void push(T *leftBlock, T *rightBlock);
-	void pushCore(T *leftBlock, T *rightBlock);
-
-	void pushInterleaved(T *data);
+	void pushSync(T *leftBlock, T *rightBlock);
+	void push(T *data);
 
 	void pop(T *leftBlock, T *rightBlock);
 	void pop(T *leftBlock, T *rightBlock, void (*fn)(void));
 
-	void popCore(T *leftBlock, T *rightBlock);
-	void popCoreInterleaved(T *data);
+	void popSync(T *leftBlock, T *rightBlock);
+	void popSync(T *data);
 
+	T *peek(uint32_t offset);
 	void peek(T *leftBlock, T *rightBlock, uint32_t offset=0);
-	void peekCore(T *leftBlock, T *rightBlock, uint32_t offset=0);
-	void peekHeadCore(T *leftBlock, T *rightBlock, uint32_t offset=0);
+	void peekSync(T *leftBlock, T *rightBlock, uint32_t offset=0);
+	void peekBackSync(T *leftBlock, T *rightBlock, uint32_t offset=0);
 
-	void peekHead(T *left, T *right, uint32_t offset, void (*fn)(void));
-	void peekHeadSamples(T *left, T *right, uint32_t offset, uint32_t size, void (*fn)(void));
+	T *peekBack(uint32_t offset);
+	void peekBack(T *left, T *right, uint32_t offset, void (*fn)(void));
+	void peekBack(T *left, T *right, uint32_t offset, uint32_t size, void (*fn)(void));
 
 	void clear( T *ptr );
 
 	void discard( void );
 	void bump( void );
 
-	T *nextValidPtr(T *ptr){
+	T *nextValid(T *ptr){
 		if(ptr >= end) return (T *)startAddr;
+		else return ptr;
+	}
+
+	T *previousValid(T *ptr){
+		if(ptr < (T *)startAddr) return end - (AUDIO_BUFSIZE << 1);
 		else return ptr;
 	}
 
@@ -51,8 +54,8 @@ public:
 	bool empty( void ) { return count == 0; }
 	uint32_t getCount( void ) { return count; }
 	void setCount(uint32_t c) { count  = c; }
-	T *getTail( void ){ return tail; }
-	T *getHead( void ){ return head; }
+	T *getFront( void ){ return tail; }
+	T *getBack( void ){ return head; }
 
 protected:
 	uint32_t startAddr, cap;

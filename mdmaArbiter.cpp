@@ -27,6 +27,10 @@ MdmaArbiter::MdmaArbiter( void )
 bool MdmaArbiter::queue(void *dst, void *src, uint32_t dstMod, uint32_t srcMod,
 		uint32_t count, uint16_t elementSize, void (*cb)(void))
 {
+	uint32_t mask;
+
+	mask = noInterrupts();
+
 	if(cnt == MAX_JOBS){
 		__asm__ volatile("EMUEXCPT;");
 		return false;
@@ -104,6 +108,8 @@ bool MdmaArbiter::queue(void *dst, void *src, uint32_t dstMod, uint32_t srcMod,
 
 	runQueue();
 
+	interrupts(mask);
+
 	return true;
 }
 
@@ -129,7 +135,6 @@ bool queue(void *dst, void *src, uint32_t dstMod, uint32_t srcMod, uint32_t coun
 
 void MdmaArbiter::runQueue( void )
 {
-
 	while(cnt){
 		volatile struct mdmaChannel *ch = NULL;
 		for(int i=0; i<NUM_MDMA_CHANNELS; i++){

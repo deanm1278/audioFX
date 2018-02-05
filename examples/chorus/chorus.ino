@@ -4,71 +4,95 @@
 
 #include "audioFX.h"
 #include "audioRingBuf.h"
+#include "scheduler.h"
 
 //create the fx object
 AudioFX fx;
+Scheduler sch;
 
 /* the maximum number of samples the chorus voice will be delayed */
 #define MAX_DELAY 1024
 
 /* how many samples will be in our LFO */
-#define LFO_SAMPLES 256
+#define LFO_SAMPLES 1024
 
 /* how many audioLoops go by before the LFO position is incremented.
  *  Each audioLoop is about 2 mS.
  */
-#define LFO_DIV 12
+#define RATE_LEFT 4
+#define RATE_RIGHT 7
 
 /* The multiplier for the chorus sample */
-#define DEPTH .1
+#define DEPTH .5
 
 /* the multiplier for the dry sample */
 #define DRY_MIX .6
 
-AudioRingBuf buf((MAX_DELAY/AUDIO_BUFSIZE) + 1, &fx);
-bool newBufferReceived;
+q31 delayData[((MAX_DELAY/AUDIO_BUFSIZE) + 2) * (AUDIO_BUFSIZE*2)];
+static AudioRingBuf<q31> buf(delayData, ((MAX_DELAY/AUDIO_BUFSIZE) + 2), &fx);
 
-int32_t tap0Left[AUDIO_BUFSIZE*2],
-    tap0Right[AUDIO_BUFSIZE*2];
+q31 tap0Left[AUDIO_BUFSIZE],
+    tap0Right[AUDIO_BUFSIZE],
 
-int32_t dryLeft[AUDIO_BUFSIZE],
-	dryRight[AUDIO_BUFSIZE];
+/* unused samples will be stored here */
+	unused[AUDIO_BUFSIZE];
+
+q31 *inputData;
 
 /* this will be our LFO lookup table */
-uint16_t sine[LFO_SAMPLES];
+static uint16_t sine[LFO_SAMPLES];
 int loopCounter;
-int lfoIndex;
+int leftIndex, rightIndex;
 
 /* the offset of the block we will need to grab */
 int blockIndex;
 int subIndex;
 
-void audioLoop(q31 *left, q31 *right)
+void processChorus()
 {
-  //copy the dry samples to the end of our delay buffer since they're the most recent
-  memcpy(dryLeft, left, AUDIO_BUFSIZE * sizeof(int32_t));
-  memcpy(dryRight, right, AUDIO_BUFSIZE * sizeof(int32_t));
-
-  buf.push(dryLeft, dryRight);
-
-  if(blockIndex == 0){
-	  memcpy(tap0Left + AUDIO_BUFSIZE, left, AUDIO_BUFSIZE * sizeof(int32_t));
-	  memcpy(tap0Right + AUDIO_BUFSIZE, right, AUDIO_BUFSIZE * sizeof(int32_t));
-  }
-
-  subIndex = AUDIO_BUFSIZE - sine[lfoIndex]%AUDIO_BUFSIZE;
   for(int i=0; i<AUDIO_BUFSIZE; i++){
-      left[i] = FRACMUL(left[i], DRY_MIX) + FRACMUL(tap0Left[subIndex + i], DEPTH);
-      right[i] = FRACMUL(right[i], DRY_MIX) + FRACMUL(tap0Right[subIndex + i], DEPTH);
+	  *inputData++ = FRACMUL(*inputData, DRY_MIX) + FRACMUL(tap0Left[i], DEPTH);
+	  *inputData++ = FRACMUL(*inputData, DRY_MIX) + FRACMUL(tap0Right[i], DEPTH);
   }
+}
 
-  loopCounter++;
-  newBufferReceived = true;
+void audioHook(q31 *data)
+{
+	inputData = data;
+	buf.push(data);
+	loopCounter++;
+
+	/* once the delay buffer has filled up we can start grabbing samples */
+	if(buf.full()){
+
+		/* increment the loop counter when the desired number of audioLoops has passed,
+		but make sure it doesn't overshoot the LFO array .*/
+		if(loopCounter%RATE_LEFT == 0){
+		  leftIndex++;
+		  leftIndex = leftIndex%LFO_SAMPLES;
+		}
+		if(loopCounter%RATE_RIGHT == 0){
+		  rightIndex++;
+		  rightIndex = rightIndex%LFO_SAMPLES;
+		}
+
+		/* get a block of samples for the left and right channels */
+		buf.peekBack(unused, tap0Left, sine[leftIndex], AUDIO_BUFSIZE, NULL);
+		buf.peekBack(unused, tap0Right, sine[leftIndex], AUDIO_BUFSIZE, processChorus);
+
+		/* remove the last block in the buffer to make room for new blocks
+		 *  once we have the samples we need.
+		 */
+		buf.discard();
+	}
 }
 
 void setup() {
   loopCounter = 0;
-  lfoIndex = 0;
+
+  //start left and right chorus at different points
+  leftIndex = 0;
+  rightIndex = LFO_SAMPLES / 4;
 
   /* create a sine wave for the LFO. Each point represents the number
    *  of samples to delay the input.
@@ -78,43 +102,14 @@ void setup() {
   }
 
   fx.begin();
-  fx.setCallback(audioLoop);
-  newBufferReceived = false;
+  sch.begin();
+
+  //set the function to be called when a buffer is ready
+  fx.setHook(audioHook);
+
+  sch.addTask(loop, 0);
 }
 
 void loop() {
-  fx.processBuffer();
-
-  if(newBufferReceived){
-    /* once the delay buffer has filled up we can start grabbing samples */
-    if(buf.full()){
-
-      /* increment the loop counter when the desired number of audioLoops has passed,
-      but make sure it doesn't overshoot the LFO array .*/
-      if(loopCounter%LFO_DIV == 0){
-        lfoIndex++;
-        lfoIndex = lfoIndex%LFO_SAMPLES;
-      }
-
-      /* find which block the first sample is in. */
-      blockIndex = floor(sine[lfoIndex]/AUDIO_BUFSIZE);
-
-      /* we will need 2 blocks of samples.
-       *  for example, if sine[lfoIndex] = 220,
-       *  we will need samples 220 through 220 + 128.
-       *  that would be blocks 1 and 2 since each block contains
-       *  128 samples.
-       */
-      buf.peekHeadCore(tap0Left, tap0Right, blockIndex);
-      if(blockIndex > 0)
-    	  buf.peekHeadCore(tap0Left + AUDIO_BUFSIZE, tap0Right + AUDIO_BUFSIZE, blockIndex - 1);
-
-      /* remove the last block in the buffer to make room for new blocks
-       *  once we have the samples we need.
-       */
-      buf.discard();
-    }
-    newBufferReceived = false;
-  }
-
+	__asm__ volatile("IDLE;");
 }

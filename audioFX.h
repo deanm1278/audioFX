@@ -23,6 +23,9 @@
 #define AUDIO_SEC_TO_SAMPLES(x) ((uint32_t)(x * AUDIO_SAMPLE_RATE))
 #define AUDIO_SEC_TO_BLOCKS(x) ((uint32_t)((x * AUDIO_SAMPLE_RATE)/AUDIO_BUFSIZE))
 
+#define DEINTERLEAVE(x, left, right) { q31 *lPtr = left; q31 *rPtr = right; q31 *dPtr = x; for(int __dintcount=0; __dintcount<AUDIO_BUFSIZE; __dintcount++){ *lPtr++ = *dPtr++; *rPtr++ = *dPtr++; } }
+#define INTERLEAVE(x, left, right) { q31 *lPtr = left; q31 *rPtr = right; q31 *dPtr = x; for(int __intcount=0; __intcount<AUDIO_BUFSIZE; __intcount++){ *dPtr++ = *lPtr++; *dPtr++ = *rPtr++; } }
+
 class AudioFX : public I2S
 {
 public:

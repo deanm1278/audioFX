@@ -262,7 +262,7 @@ void AudioRingBuf<T>::peekBack(T *left, T *right, uint32_t offset, uint32_t size
 			*right++ = *ptr++;
 			size--;
 		}
-		fn();
+		if(fn != NULL) fn();
 #if 0
 	}
 	else{

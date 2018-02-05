@@ -57,7 +57,7 @@ static const delayTap taps[NUM_ER_TAPS] = {
 *************************************************************/
 
 //circular buffer to hold our delayed data from the filter network
-#define FILTER_DELAY 64
+#define FILTER_DELAY 32
 L2DATA q31 filterDelayData[FILTER_DELAY * (AUDIO_BUFSIZE << 1)];
 static AudioRingBuf<q31> filterDelayBuf(filterDelayData, FILTER_DELAY, &fx);
 
@@ -169,8 +169,8 @@ void processER()
     }
 
     //add to the output
-    *p++ = FRACMUL(*p, .5) + *l;
-    *p++ = FRACMUL(*p, .5) + *r;
+    *p++ = FRACMUL(*p, .7) + *l;
+    *p++ = FRACMUL(*p, .7) + *r;
 
     //increment pointers
     l++;
@@ -183,21 +183,21 @@ void processER()
    */
   for(int i=0; i<NUM_COMB_FILTERS; i++){
     if(combFilters[i]->full()){
-      combFilters[i]->popCore(scratchDataL, scratchDataR);
+      combFilters[i]->popSync(scratchDataL, scratchDataR);
 
       q31 *il = filterInputLeft;
       q31 *ir = filterInputRight;
       q31 *l = scratchDataL;
       q31 *r = scratchDataR;
       for(int j=0; j<AUDIO_BUFSIZE; j++){
-        *l = *il + FRACMUL(*l, .7);
+        *l = *il + FRACMUL(*l, .5);
         *il++ += *l++;
 
-        *r = *ir + FRACMUL(*r, .7);
+        *r = *ir + FRACMUL(*r, .5);
         *ir++ += *r++;
       }
 
-      combFilters[i]->pushCore(scratchDataL, scratchDataR);
+      combFilters[i]->pushSync(scratchDataL, scratchDataR);
     }
   }
 
@@ -241,11 +241,11 @@ void audioHook(q31 *data)
 
   //push to the early reflections ring buffer
   memcpy(dryData, data, (AUDIO_BUFSIZE << 1) * sizeof(q31));
-  ERBuf.pushInterleaved(dryData);
+  ERBuf.push(dryData);
 
   //begin fetching necessary data
   if(ERBuf.full()){
-    ERBuf.peekHeadSamples(ERLeft, ERRight, TAP_MIN, ER_SIZE, ERFetchDone);
+    ERBuf.peekBack(ERLeft, ERRight, TAP_MIN, ER_SIZE, ERFetchDone);
     ERBuf.discard();
   }
 

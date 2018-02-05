@@ -40,15 +40,20 @@ filter_coeffs fc = {
 };
 
 //filtered blocks will be populated here
-q31 outputL[AUDIO_BUFSIZE],
+RAMB q31 outputL[AUDIO_BUFSIZE],
   outputR[AUDIO_BUFSIZE],
 
 //these will hold the inputs from the previous block
   lastBlockL[AUDIO_BUFSIZE],
-  lastBlockR[AUDIO_BUFSIZE];
+  lastBlockR[AUDIO_BUFSIZE],
 
-void audioLoop(q31 *left, q31 *right)
+  left[AUDIO_BUFSIZE],
+  right[AUDIO_BUFSIZE];
+
+void audioHook(q31 *data)
 {
+  DEINTERLEAVE(data, left, right);
+
   //do the filtering
   fir32(&fc, left, outputL, lastBlockL);
   fir32(&fc, right, outputR, lastBlockR);
@@ -58,16 +63,15 @@ void audioLoop(q31 *left, q31 *right)
   AUDIO_COPY(lastBlockR, right);
 
   //put the output samples where we will be expecting them
-  AUDIO_COPY(left, outputL);
-  AUDIO_COPY(right, outputR);
+  INTERLEAVE(data, outputL, outputR);
 }
 
 void setup() {
-  fx.begin();
-  fx.setCallback(audioLoop);
+	fx.begin();
+	fx.setHook(audioHook);
 }
 
 void loop() {
-  fx.processBuffer();
+	while(1) __asm__ volatile ("IDLE;");
 }
 

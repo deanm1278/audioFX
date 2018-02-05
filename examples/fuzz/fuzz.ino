@@ -1,9 +1,7 @@
 #include "audioFX.h"
 #include "filter.h"
-#include "scheduler.h"
 
 AudioFX fx;
-Scheduler sch;
 
 //the level to saturate to
 #define LEVEL 5000000
@@ -44,6 +42,19 @@ q31 lastBlockL[AUDIO_BUFSIZE], lastBlockR[AUDIO_BUFSIZE],
   currentBlockL[AUDIO_BUFSIZE], currentBlockR[AUDIO_BUFSIZE],
   outputBlockL[AUDIO_BUFSIZE], outputBlockR[AUDIO_BUFSIZE];
 
+static inline q31 gain(q31 ptr){
+    //gain input way up
+    ptr = ptr * 16;
+
+    //remove noise below threshold
+    if(abs(ptr) < THRESH) ptr = 0;
+    //saturate
+    else if(ptr > 0) ptr = LEVEL;
+    else ptr = -LEVEL;
+
+    return ptr;
+}
+
 void audioHook(q31 *data)
 {
   //saturate and separate
@@ -51,17 +62,8 @@ void audioHook(q31 *data)
   q31 *r = currentBlockR;
   q31 *ptr = data;
   for(int i=0; i<AUDIO_BUFSIZE; i++){
-    //gain input way up
-    *ptr = *ptr * 16;
-
-    //remove noise below threshold
-    if(abs(*ptr) < THRESH) *ptr = 0;
-    //saturate
-    else if(*ptr > 0) *ptr = LEVEL;
-    else *ptr = -LEVEL;
-
-    *l++ = *ptr++;
-    *r++ = *ptr++;
+    *l++ = gain(*ptr++);
+    *r++ = gain(*ptr++);
   }
 
   //low pass filter
@@ -72,23 +74,14 @@ void audioHook(q31 *data)
   AUDIO_COPY(lastBlockL, currentBlockL);
   AUDIO_COPY(lastBlockR, currentBlockR);
 
-  //re-interleave
-  l = outputBlockL;
-  r = outputBlockR;
-  for(int i=0; i<AUDIO_BUFSIZE; i++){
-    *data++ = *l++;
-    *data++ = *r++;
-  }
+  INTERLEAVE(data, outputBlockL, outputBlockR);
 }
 
 void setup(){
   fx.begin();
-  sch.begin();
   fx.setHook(audioHook);
-
-  sch.addTask(loop, 0);
 }
 
 void loop(){
-  while(1) __asm__ volatile ("IDLE;");
+  __asm__ volatile ("IDLE;");
 }

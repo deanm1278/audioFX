@@ -13,6 +13,7 @@
 #include "Timer.h"
 #include "mdmaArbiter.h"
 #include "audioFX_config.h"
+#include "ak4558.h"
 
 #define AUDIO_SAMPLE_RATE 48300
 
@@ -43,6 +44,7 @@ public:
 	static MdmaArbiter _arb;
 
 private:
+	ak4558 iface;
 	void (*audioCallback)(int32_t *, int32_t *);
 };
 

@@ -44,7 +44,7 @@ static DMADescriptor *dWrite[3];
 
 static volatile uint8_t intCount = 0;
 
-AudioFX::AudioFX( void ) : I2S(SPORT0, BCLK_PIN, FS_PIN, AD0_PIN, BD0_PIN)
+AudioFX::AudioFX( void ) : I2S(SPORT0, BCLK_PIN, FS_PIN, AD0_PIN, BD0_PIN), iface()
 {
 	bufReady = false;
 	audioCallback = NULL;
@@ -94,14 +94,7 @@ AudioFX::AudioFX( void ) : I2S(SPORT0, BCLK_PIN, FS_PIN, AD0_PIN, BD0_PIN)
 bool AudioFX::begin( void )
 {
 	//begin the MCLK
-	_tmr.begin(FS*128);
-
-	/*
-	//enable trigger for the timer
-	TRU0->GCTL.bit.EN = 1;
-	TRU0->SSR24.bit.SSR = 6;
-	TIMER0->TRG_MSK.bit.TMR04 = 0;
-	*/
+	//_tmr.begin(FS*128);
 
 	//begin i2s
 	I2S::begin(BCLK, FS, WLEN);
@@ -112,11 +105,14 @@ bool AudioFX::begin( void )
 	DMA[SPORT0_B_DMA]->DSCPTR_NXT.reg = (uint32_t)dWrite[0];
 	DMA[SPORT0_B_DMA]->CFG.reg = (4UL << 16) | (DMA_CFG_FLOW_DSCL << 12) | (DMA_MSIZE_4_BYTES << 8) | (DMA_CFG_PSIZE_4_BYTES << 4) | (DMA_CFG_WNR_WRITE_TO_MEM << 1)|  DMA_CFG_ENABLE;
 
-	//wait for MCLK trigger
-	//DMA[SPORT0_A_DMA]->CFG.bit.TWAIT = 1;
-
 	enableIRQ(31);
 	setIRQPriority(31, IRQ_MAX_PRIORITY);
+
+	delay(10);
+
+	if(!iface.begin()){
+		__asm__ volatile("EMUEXCPT;");
+	}
 
 	return true;
 }

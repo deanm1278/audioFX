@@ -33,6 +33,8 @@ bool ak4558::begin(uint8_t addr) {
 	_modeControl.bit.LOPS = 1;
 	write8(AK4558_MODE_CONTROL, _modeControl.reg);
 
+	//TODO: figure out why filter is so angry
+
 	//power up PLL
 	_PLLControl.bit.PMPLL = 1;
 	write8(AK4558_PLL, _PLLControl.reg);

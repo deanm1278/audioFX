@@ -93,6 +93,11 @@ AudioFX::AudioFX( void ) : I2S(SPORT0, BCLK_PIN, FS_PIN, AD0_PIN, BD0_PIN), ifac
 
 bool AudioFX::begin( void )
 {
+
+    if(!iface.begin()){
+        __asm__ volatile("EMUEXCPT;");
+    }
+
 	//begin the MCLK
 	//_tmr.begin(FS*128);
 
@@ -107,12 +112,6 @@ bool AudioFX::begin( void )
 
 	enableIRQ(31);
 	setIRQPriority(31, IRQ_MAX_PRIORITY);
-
-	delay(10);
-
-	if(!iface.begin()){
-		__asm__ volatile("EMUEXCPT;");
-	}
 
 	return true;
 }

@@ -14,8 +14,7 @@
 #include "mdmaArbiter.h"
 #include "audioFX_config.h"
 #include "ak4558.h"
-
-#define AUDIO_SAMPLE_RATE 48300
+#include "utility.h"
 
 #define AUDIO_COPY(dst,src) memcpy(dst, src, AUDIO_BUFSIZE * sizeof(int32_t))
 #define ARRAY_COUNT_32(x) (sizeof(x)/sizeof(q31))

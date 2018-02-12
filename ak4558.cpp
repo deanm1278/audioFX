@@ -26,7 +26,7 @@ bool ak4558::begin(uint8_t addr) {
 	write8(AK4558_PLL, _PLLControl.reg);
 
 	//set format
-	_control1.bit.DIF = 0x03; //24 bit i2s for now
+	_control1.bit.DIF = 0x07; //32 bit i2s for now
 	write8(AK4558_CONTROL_1, _control1.reg);
 
 	_modeControl.bit.FS = 0x04; //48kHz

@@ -13,7 +13,7 @@
 
 #define FS (AUDIO_SAMPLE_RATE*2) //around 48khz
 #define BCLK (32 * FS)
-#define WLEN 24
+#define WLEN 32
 
 #define BCLK_PIN 10
 #define FS_PIN 5

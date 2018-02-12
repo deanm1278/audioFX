@@ -10,4 +10,6 @@
 
 #define AUDIO_BUFSIZE 128
 
+#define AUDIO_SAMPLE_RATE 48000
+
 #endif /* AUDIOFX_AUDIOFX_CONFIG_H_ */

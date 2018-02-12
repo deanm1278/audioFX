@@ -39,6 +39,12 @@ static inline int32_t q_mod(int32_t a, uint32_t mask){
 }
 
 static inline q31 sin_q28(q28 x){
+	bool negative = false;
+	if(x < 0){
+		negative = true;
+		x = __builtin_bfin_abs_fr1x32(x);
+	}
+
 	//input x is in units of pi/2 in range of 0.0 - 3.999
 	q31 sin_param = _F28_TO_F31(x & ~(_F28_INTEGER_MASK));
 
@@ -54,10 +60,11 @@ static inline q31 sin_q28(q28 x){
 	else
 		__asm__ volatile("EMUEXCPT;");
 
+	if(negative) result = __builtin_bfin_negate_fr1x32(result);
 	return result;
 }
 
-static inline q31 fm(q16 carrier, q16 mod, q16 imod){
+static inline q31 fm(q16 carrier, q16 mod, q31 imod){
 	//returns units of radians. input x is in units pi*radians
 	q28 x = _fm_pos;
 
@@ -65,14 +72,15 @@ static inline q31 fm(q16 carrier, q16 mod, q16 imod){
 	q28 y = _mult_q28xq16_mod(x, mod) * 4;
 	q31 mod_out = sin_q28(y);
 	mod_out = __builtin_bfin_mult_fr1x32x32(mod_out, _F(1.0/PI));
-	q28 mod_shifted = mod_out >> 3;
+	mod_out = __builtin_bfin_mult_fr1x32x32(mod_out, imod);
+	mod_out = mod_out / (1<<2);
 
 	x = _mult_q28xq16_mod(x, carrier);
 	x = x*4; //multiply by 2 and scale up to units of pi/2 (multiply by 2 again)
 
-	mod_shifted = _mult_q28xq16_mod(mod_shifted, imod);
+	//mod_shifted = _mult_q28xq16_mod(mod_shifted, imod);
 
-	q31 result = sin_q28(x + mod_shifted);
+	q31 result = sin_q28(x + mod_out);
 
 	return result;
 }

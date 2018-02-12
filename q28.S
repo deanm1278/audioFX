@@ -2,7 +2,7 @@
  * _mult_q28xq16_mod(q28, q16);
  */
 
- #ifndef __ASSEMBLY__
+#ifndef __ASSEMBLY__
 #define __ASSEMBLY__
 #endif
 

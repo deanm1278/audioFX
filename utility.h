@@ -31,6 +31,7 @@ extern q28 _fm_pos;
 extern "C" {
 extern q28 _mult_q28xq16_mod(q28 a, q16 b);
 extern q28 _mult_q28xq28(q28 a, q28 b);
+extern q16 _mult_q16(q16 a, q16 b);
 };
 
 static inline int32_t q_mod(int32_t a, uint32_t mask){

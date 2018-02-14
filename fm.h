@@ -15,46 +15,41 @@
 #define FM_MAX_OPERATORS 6
 #define FM_MAX_ENVELOPES FM_MAX_OPERATORS
 
+class Voice;
+class Operator;
+
 /************* BASE MODULATOR CLASS **************/
 template<class T> class Modulator {
 public:
-    Modulator();
+    Modulator(T initialOutput = 0){ this->output = initialOutput; this->calculated = false; }
     ~Modulator() {}
 
-    T getOutput();
+    T getOutput() { return this->output; };
     void setOutput(T out) { output = out; }
+
+    bool calculated;
 protected:
     T output;
-    bool calculated;
 };
 template class Modulator<q31>;
 template class Modulator<q16>;
 
-/************* ENVELOPE CLASS **************/
-typedef enum {
-    ENVELOPE_ATTACK = 0,
-    ENVELOPE_DECAY,
-    ENVELOPE_SUSTAIN,
-    ENVELOPE_RELEASE,
-} envState;
-
-template<class T> struct envStatus{
-    T currentLevel;
-    envState state;
+/************* FIXED FREQUENCY CLASS **************/
+class FixedFrequency : public Modulator<q16> {
+public:
+    FixedFrequency(q16 freq) { output = freq; }
+    ~FixedFrequency() {}
 };
 
-template struct envStatus<q31>;
-template struct envStatus<q16>;
-
+/************* ENVELOPE CLASS **************/
 template<class T> class Envelope : public Modulator<T> {
 public:
-    Envelope();
+    Envelope() { setDefaults(); }
     ~Envelope() {}
 
-    T getOutput(envStatus<T> *status);
-        /* Calculate the output based on the passed status
-         * update the status.
-         */
+    T getOutput(Voice *voice);
+
+    void setDefaults();
 
     typedef struct {
         T level;
@@ -81,52 +76,79 @@ public:
      * requires the current status of any envelopes.
      * If a circular reference is encountered, the previous calculation is used
      */
-    q31 getOutput(envStatus<q31> *statuses);
+    q31 getOutput(Voice *voice);
 
     typedef struct {
-       Modulator<q31> *mod;
+       Operator *mod;
        Envelope<q31> env;
     } modSlot;
 
     Modulator<q16> *carrier;
     modSlot mods[OP_MAX_INPUTS];
+
+    bool isCarrier;
 private:
 };
 
-class Voice;
+/************* RATIO FREQUENCY CLASS **************/
+class RatioFrequency : public Modulator<q16> {
+public:
+    RatioFrequency(Operator *source, q16 ratio) { this->source = source; this->ratio = ratio; }
+    ~RatioFrequency() {}
+
+    q16 getOutput(){ output = _mult_q16(source->carrier->getOutput(), ratio); return output; }
+
+    Operator *source;
+    q16 ratio;
+
+};
 
 /************* ALGORITHM CLASS **************/
 class Algorithm : public Modulator<q31>{
 public:
-    Algorithm(Operator **operators, uint8_t numOperators);
+    Algorithm(Operator **operators, uint8_t numOperators) { ops = operators; numOps = numOperators; }
     ~Algorithm() {}
 
     /* runs all operators for a given voice, return mixed output */
-    q31 getOutput(Voice *voice) {
-        /* for each operator:
-         *      getOutput(voice->envStatuses[i]) ... this calculates dependant mods (including operators)
-         *
-         * sum all and return
-         */
-    }
+    q31 getOutput(Voice *voice);
+
 private:
     Operator **ops;
     uint8_t numOps;
 };
 
 /************* VOICE CLASS **************/
+enum {
+    FM_ENVELOPE_TRIGGER_NONE = 0,
+    FM_ENVELOPE_TRIGGER_ATTACK,
+    FM_ENVELOPE_TRIGGER_RELEASE,
+};
+
 class Voice : public Modulator<q16>{
 public:
-    Voice(Algorithm *algo);
+    Voice(Algorithm *algo) { algorithm = algo; t = 0; active = false; triggerEnvelopes = FM_ENVELOPE_TRIGGER_NONE; }
     ~Voice() {}
 
-    q16 frequency;
-    q16 getOutput() { return frequency; }
+    q28 getT() { return t; }
+    q31 play() {
+        q31 result = algorithm->getOutput(this);
+        //increment the timestep for this voice
+        t = (t + FM_INC) & ~(_F28_INTEGER_MASK << 1);
+        triggerEnvelopes = FM_ENVELOPE_TRIGGER_NONE;
+        return result;
+    }
+    void trigger(bool state) {
+        if(state)
+            triggerEnvelopes = FM_ENVELOPE_TRIGGER_ATTACK;
+        else if(!state && active)
+            triggerEnvelopes = FM_ENVELOPE_TRIGGER_RELEASE;
+        active = state;
+    }
 
-    q31 play() { return algorithm->getOutput(this); }
-
-    envStatus<q31> envStatuses[FM_MAX_OPERATORS][OP_MAX_INPUTS];
+    bool active;
+    int triggerEnvelopes;
 private:
+    q28 t;
     Algorithm *algorithm;
 };
 

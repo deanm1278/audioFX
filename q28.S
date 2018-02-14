@@ -9,6 +9,31 @@
 #include <bf706_device.h>
 
 .align 2
+.global __mult_q16;
+.type __mult_q16, STT_FUNC;
+__mult_q16:
+	LINK 0;
+	[--SP] = A0.x;
+	[--SP] = A0.w;
+	[--SP] = A1.x;
+	[--SP] = A1.w;
+
+	A1 = R0.L * R1.L (FU);
+	A1 = A1 >> 16;
+	A0 = R0.H * R1.H, A1 += R0.H * R1.L (FU);
+	A1 += R1.H * R0.L (FU);
+	A0 = A0 << 16;
+	R0 = (A0 += A1);
+
+	A1.w = [SP++];
+	A1.x = [SP++];
+	A0.w = [SP++];
+	A0.x = [SP++];
+	UNLINK;
+	RTS;
+
+
+.align 2
 .global __mult_q28xq28;
 .type __mult_q28xq28, STT_FUNC;
 __mult_q28xq28:
@@ -32,7 +57,6 @@ __mult_q28xq28:
 	A1.x = [SP++];
 	A0.w = [SP++];
 	A0.x = [SP++];
-
 	UNLINK;
 	RTS;
 

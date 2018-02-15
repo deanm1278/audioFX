@@ -26,7 +26,8 @@ typedef q31 __cos_q31(q31 x);
 static __cos_q31* _cos_q31 = (__cos_q31*)0x04014e40;
 
 extern q28 _fm_pos;
-#define FM_INC (_F28(1./(AUDIO_SAMPLE_RATE+1700)))
+#define FM_CORRECTION 1700
+#define FM_INC (_F28(1./(AUDIO_SAMPLE_RATE+FM_CORRECTION)))
 
 extern "C" {
 extern q28 _mult_q28xq16_mod(q28 a, q16 b);

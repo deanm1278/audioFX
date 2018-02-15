@@ -7,7 +7,7 @@
 
 #include "fm.h"
 
-Operator::Operator() {
+Operator::Operator() : volume() {
     isCarrier = false;
 
     for(int i=0; i<OP_MAX_INPUTS; i++)
@@ -48,7 +48,7 @@ q31 Operator::getOutput(Voice *voice) {
         //calculate
         q31 result = sin_q28(x + mod_total);
 
-        output = result;
+        output = __builtin_bfin_mult_fr1x32x32(result, volume.getOutput(voice));
         calculated = true;
     }
 
@@ -72,31 +72,48 @@ q31 Algorithm::getOutput(Voice *voice) {
 
 template <>
 void Envelope<q31>::setDefaults(){
-    attack  = { _F(0), _F(0) };
-    decay   = { _F(0), _F(0) };
-    sustain = { _F(0), _F(0) };
-    release = { _F(0), _F(0) };
+    attack  = { _F(0), 0 };
+    decay   = { _F(0), 0 };
+    sustain = { _F(.999), 0 };
+    release = { _F(0), 0 };
 }
 
 template <>
 void Envelope<q16>::setDefaults(){
-    attack  = { _F16(0), _F16(0) };
-    decay   = { _F16(0), _F16(0) };
-    sustain = { _F16(0), _F16(0) };
-    release = { _F16(0), _F16(0) };
+    attack  = { _F16(0), 0 };
+    decay   = { _F16(0), 0 };
+    sustain = { _F16(0), 0 };
+    release = { _F16(0), 0 };
 }
 
 template <class T>
 T Envelope<T>::getOutput(Voice *voice){
-    if(voice->triggerEnvelopes == FM_ENVELOPE_TRIGGER_ATTACK){
-        //start the envelope over
+    if(voice->triggerEnvelopes == FM_ENVELOPE_TRIGGER_TICK){
+        //tick the envelope
+        if(voice->active){
+            //we are in ADS
+            if(voice->ms > attack.time + decay.time){
+                //Sustain
+                Modulator<T>::output = sustain.level;
+            }
+            else if(voice->ms > attack.time){
+                //Decay
+                Modulator<T>::output = attack.level + (decay.level - attack.level)/decay.time * (voice->ms - attack.time);
+            }
+            else{
+                //Attack
+                Modulator<T>::output = attack.level/attack.time * voice->ms;
+            }
+        }
+        else{
+            if(voice->ms > release.time){
+                Modulator<T>::output = release.level;
+            }
+            else{
+                //we are in R
+                Modulator<T>::output = sustain.level + (release.level - sustain.level)/release.time * voice->ms;
+            }
+        }
     }
-    else if(voice->triggerEnvelopes == FM_ENVELOPE_TRIGGER_RELEASE){
-        //go into release mode
-    }
-    else{
-
-    }
-
-    return _F(.5);
+    return Modulator<T>::output;
 }

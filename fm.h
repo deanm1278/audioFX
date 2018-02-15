@@ -24,7 +24,7 @@ public:
     Modulator(T initialOutput = 0){ this->output = initialOutput; this->calculated = false; }
     ~Modulator() {}
 
-    T getOutput() { return this->output; };
+    virtual T getOutput() { return this->output; };
     void setOutput(T out) { output = out; }
 
     bool calculated;
@@ -53,7 +53,7 @@ public:
 
     typedef struct {
         T level;
-        T inc;
+        uint32_t time;
     } envParam;
 
     envParam attack,
@@ -86,6 +86,8 @@ public:
     Modulator<q16> *carrier;
     modSlot mods[OP_MAX_INPUTS];
 
+    Envelope<q31> volume;
+
     bool isCarrier;
 private:
 };
@@ -93,10 +95,16 @@ private:
 /************* RATIO FREQUENCY CLASS **************/
 class RatioFrequency : public Modulator<q16> {
 public:
-    RatioFrequency(Operator *source, q16 ratio) { this->source = source; this->ratio = ratio; }
+    RatioFrequency(Operator *source, q16 ratio) {
+        this->source = source;
+        this->ratio = ratio;
+    }
     ~RatioFrequency() {}
 
-    q16 getOutput(){ output = _mult_q16(source->carrier->getOutput(), ratio); return output; }
+    q16 getOutput(){
+        output = _mult_q16(source->carrier->getOutput(), ratio);
+        return output;
+    }
 
     Operator *source;
     q16 ratio;
@@ -120,8 +128,7 @@ private:
 /************* VOICE CLASS **************/
 enum {
     FM_ENVELOPE_TRIGGER_NONE = 0,
-    FM_ENVELOPE_TRIGGER_ATTACK,
-    FM_ENVELOPE_TRIGGER_RELEASE,
+    FM_ENVELOPE_TRIGGER_TICK,
 };
 
 class Voice : public Modulator<q16>{
@@ -131,22 +138,28 @@ public:
 
     q28 getT() { return t; }
     q31 play() {
+        if(t % (FM_INC * 50) == 0){
+            ms++;
+            triggerEnvelopes = FM_ENVELOPE_TRIGGER_TICK;
+        }
+
         q31 result = algorithm->getOutput(this);
         //increment the timestep for this voice
         t = (t + FM_INC) & ~(_F28_INTEGER_MASK << 1);
+
         triggerEnvelopes = FM_ENVELOPE_TRIGGER_NONE;
         return result;
     }
     void trigger(bool state) {
         if(state)
-            triggerEnvelopes = FM_ENVELOPE_TRIGGER_ATTACK;
-        else if(!state && active)
-            triggerEnvelopes = FM_ENVELOPE_TRIGGER_RELEASE;
+            t = 0;
         active = state;
+        ms = 0xFFFFFFFF;
     }
 
-    bool active;
+    volatile bool active;
     int triggerEnvelopes;
+    volatile uint32_t ms; //millisecond counter for envelopes
 private:
     q28 t;
     Algorithm *algorithm;

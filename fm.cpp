@@ -11,7 +11,7 @@ Operator::Operator() : volume() {
     isCarrier = false;
 
     for(int i=0; i<OP_MAX_INPUTS; i++)
-        mods[i].mod = NULL;
+        mods[i] = NULL;
 }
 
 q31 Operator::getOutput(Voice *voice) {
@@ -23,19 +23,16 @@ q31 Operator::getOutput(Voice *voice) {
 
         q16 cfreq = carrier->getOutput();
 
-        if(cfreq == 0) __asm__ volatile("EMUEXCPT;");
+        //if(cfreq == 0) __asm__ volatile("EMUEXCPT;");
 
         x = _mult_q28xq16_mod(x, cfreq);
         x = x*4; //multiply by 2 and scale up to units of pi/2 (multiply by 2 again)
 
         q28 mod_total = 0;
         for(int ix=0; ix<OP_MAX_INPUTS; ix++){
-            if(mods[ix].mod != NULL){
+            if(mods[ix] != NULL){
                 //scale down by pi
-                q31 mod_out = __builtin_bfin_mult_fr1x32x32(mods[ix].mod->getOutput(voice), _F(1.0/PI));
-
-                //multiply by imod
-                mod_out = __builtin_bfin_mult_fr1x32x32(mod_out, mods[ix].env.getOutput(voice));
+                q31 mod_out = __builtin_bfin_mult_fr1x32x32(mods[ix]->getOutput(voice), _F(1.0/PI));
 
                 //scale to q28
                 mod_out = mod_out / (1<<2);
@@ -92,11 +89,11 @@ T Envelope<T>::getOutput(Voice *voice){
         //tick the envelope
         if(voice->active){
             //we are in ADS
-            if(voice->ms > attack.time + decay.time){
+            if(voice->ms >= attack.time + decay.time){
                 //Sustain
                 Modulator<T>::output = sustain.level;
             }
-            else if(voice->ms > attack.time){
+            else if(voice->ms >= attack.time){
                 //Decay
                 Modulator<T>::output = attack.level + (decay.level - attack.level)/decay.time * (voice->ms - attack.time);
             }

@@ -78,13 +78,9 @@ public:
      */
     q31 getOutput(Voice *voice);
 
-    typedef struct {
-       Operator *mod;
-       Envelope<q31> env;
-    } modSlot;
+    Operator *mods[OP_MAX_INPUTS];
 
     Modulator<q16> *carrier;
-    modSlot mods[OP_MAX_INPUTS];
 
     Envelope<q31> volume;
 

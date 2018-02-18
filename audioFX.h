@@ -42,9 +42,16 @@ public:
 	static Timer _tmr;
 	static MdmaArbiter _arb;
 
+	uint8_t *tempAlloc(void *data, uint8_t size);
+
+	static uint8_t *tempPoolPtr;
+	static uint8_t tempPool[AUDIO_TEMP_POOL_SIZE];
+
 private:
 	ak4558 iface;
 	void (*audioCallback)(int32_t *, int32_t *);
 };
+
+extern AudioFX fx;
 
 #endif /* LIB_AUDIOFX_H_ */

@@ -12,4 +12,6 @@
 
 #define AUDIO_SAMPLE_RATE 48000
 
+#define AUDIO_TEMP_POOL_SIZE (256*sizeof(q31))
+
 #endif /* AUDIOFX_AUDIOFX_CONFIG_H_ */

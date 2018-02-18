@@ -12,7 +12,7 @@
 
 template<class T> class AudioRingBuf {
 public:
-	AudioRingBuf(T *buf, uint32_t size, AudioFX *fx, uint32_t addrOffset = 0);
+	AudioRingBuf(T *buf, uint32_t size, uint32_t addrOffset = 0);
 	void resize(uint32_t size);
 
 	//non-blocking push and pop
@@ -61,8 +61,6 @@ protected:
 	uint32_t startAddr, cap;
 	volatile uint32_t count;
 	T *head, *tail, *end;
-	AudioFX *_fx;
-
 };
 
 template class AudioRingBuf<q31>;

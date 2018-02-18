@@ -24,6 +24,7 @@ MdmaArbiter::MdmaArbiter( void )
 
 }
 
+//TODO: this needs to be optimized a lot, takes 1427 clock cycles
 bool MdmaArbiter::queue(void *dst, void *src, uint32_t dstMod, uint32_t srcMod,
 		uint32_t count, uint16_t elementSize, void (*cb)(void))
 {

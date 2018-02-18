@@ -24,11 +24,10 @@ public:
     Modulator(T initialOutput = 0){ this->output = initialOutput; this->calculated = false; }
     ~Modulator() {}
 
-    virtual T getOutput() { return this->output; };
+    virtual void getOutput(T *buf) { for(int i=0; i<AUDIO_BUFSIZE; i++) *buf++ = output; };
     void setOutput(T out) { output = out; }
 
     bool calculated;
-protected:
     T output;
 };
 template class Modulator<q31>;
@@ -47,7 +46,7 @@ public:
     Envelope() { setDefaults(); }
     ~Envelope() {}
 
-    T getOutput(Voice *voice);
+    void getOutput(T *buf, Voice *voice);
 
     void setDefaults();
 
@@ -76,7 +75,7 @@ public:
      * requires the current status of any envelopes.
      * If a circular reference is encountered, the previous calculation is used
      */
-    q31 getOutput(Voice *voice);
+    void getOutput(q31 *buf, Voice *voice);
 
     Operator *mods[OP_MAX_INPUTS];
 
@@ -97,9 +96,12 @@ public:
     }
     ~RatioFrequency() {}
 
-    q16 getOutput(){
-        output = _mult_q16(source->carrier->getOutput(), ratio);
-        return output;
+    //TODO: this can be optimized if carrier is always static
+    void getOutput(q16 *buf){
+    	source->carrier->getOutput(buf);
+
+    	for(int i=0; i<AUDIO_BUFSIZE; i++)
+    		*buf++ = _mult_q16(*buf, ratio);
     }
 
     Operator *source;
@@ -114,7 +116,7 @@ public:
     ~Algorithm() {}
 
     /* runs all operators for a given voice, return mixed output */
-    q31 getOutput(Voice *voice);
+    void getOutput(q31 *buf, Voice *voice);
 
 private:
     Operator **ops;
@@ -122,40 +124,38 @@ private:
 };
 
 /************* VOICE CLASS **************/
-enum {
-    FM_ENVELOPE_TRIGGER_NONE = 0,
-    FM_ENVELOPE_TRIGGER_TICK,
-};
 
 class Voice : public Modulator<q16>{
 public:
-    Voice(Algorithm *algo) { algorithm = algo; t = 0; active = false; triggerEnvelopes = FM_ENVELOPE_TRIGGER_NONE; }
+    Voice(Algorithm *algo) {
+    	algorithm = algo;
+    	t = 0;
+    	active = false;
+    	ms = 0;
+    	gain = _F(.999);
+    }
     ~Voice() {}
 
     q28 getT() { return t; }
-    q31 play() {
-        if(t % (FM_INC * 50) == 0){
-            ms++;
-            triggerEnvelopes = FM_ENVELOPE_TRIGGER_TICK;
-        }
+    void play(q31 *buf, q31 gain) {
+    	this->gain = gain;
+    	algorithm->getOutput(buf, this);
 
-        q31 result = algorithm->getOutput(this);
-        //increment the timestep for this voice
-        t = (t + FM_INC) & ~(_F28_INTEGER_MASK << 1);
-
-        triggerEnvelopes = FM_ENVELOPE_TRIGGER_NONE;
-        return result;
+    	//increment time
+    	t = (t + FM_INC*AUDIO_BUFSIZE) & ~(_F28_INTEGER_MASK << 1);
+    	ms += 2;
     }
     void trigger(bool state) {
         if(state)
             t = 0;
         active = state;
-        ms = 0xFFFFFFFF;
+        ms = 0;
     }
 
     volatile bool active;
-    int triggerEnvelopes;
-    volatile uint32_t ms; //millisecond counter for envelopes
+    uint32_t ms;
+    q31 gain;
+
 private:
     q28 t;
     Algorithm *algorithm;

@@ -37,6 +37,9 @@ void (*AudioFX::audioHook)(int32_t *);
 Timer AudioFX::_tmr(MCLK_PIN);
 MdmaArbiter AudioFX::_arb;
 
+uint8_t AudioFX::tempPool[AUDIO_TEMP_POOL_SIZE];
+uint8_t *AudioFX::tempPoolPtr = AudioFX::tempPool;
+
 DMADescriptor dRead0, dRead1, dRead2, dWrite0, dWrite1, dWrite2;
 
 static DMADescriptor *dRead[3];
@@ -159,6 +162,16 @@ void AudioFX::setCallback( void (*fn)(int32_t *, int32_t *) )
 	audioCallback = fn;
 }
 
+uint8_t *AudioFX::tempAlloc(void *data, uint8_t size)
+{
+	uint8_t *ptr = tempPoolPtr;
+	memcpy(tempPoolPtr, data, size);
+	tempPoolPtr += size;
+	return ptr;
+}
+
+AudioFX fx;
+
 extern "C" {
 
 int SPORT0_B_DMA_Handler (int IQR_NUMBER )
@@ -169,22 +182,7 @@ int SPORT0_B_DMA_Handler (int IQR_NUMBER )
 
 	intCount = (intCount + 1) % 3;
 
-	//TODO: check for unfinished process buffer
-	//if(bufReady) asm volatile("EMUEXCPT;");
-
-	//TODO: prevent overflow somewhere else
-	//int32_t *d = buffers[(intCount + 1) % 3].data;
-	int32_t *e = *procBuf;
-	for(int i=0; i<(AUDIO_BUFSIZE << 1); i++){
-		*e++ = (*e << 8) / (1 << 8); //convert input to 24 bit 2s complement
-
-		//saturate output to 24 bit 2s complement
-		//if(*d > (int32_t)0x7FFFFF) *d = (int32_t)0x7FFFFF;
-		//else if(*d < (int32_t)-8388608) *d = (int32_t)-8388608;
-		//d++;
-	}
-
-	bufReady = true;
+	AudioFX::tempPoolPtr = AudioFX::tempPool;
 
 	if(AudioFX::audioHook != NULL) AudioFX::audioHook(*procBuf);
 

@@ -12,7 +12,7 @@
 static uint32_t zero[4] = {0, 0, 0, 0};
 
 template <class T>
-AudioRingBuf<T>::AudioRingBuf(T *buf, uint32_t size, AudioFX *fx, uint32_t addrOffset)
+AudioRingBuf<T>::AudioRingBuf(T *buf, uint32_t size, uint32_t addrOffset)
 {
 	startAddr = (uint32_t)buf;
 	head = (T *)startAddr;
@@ -21,7 +21,6 @@ AudioRingBuf<T>::AudioRingBuf(T *buf, uint32_t size, AudioFX *fx, uint32_t addrO
 	end = (T *)(startAddr + (AUDIO_BUFSIZE << 1) * sizeof(T) * size);
 	count = 0;
 	cap = size;
-	_fx = fx;
 }
 
 template <class T>
@@ -34,7 +33,7 @@ void AudioRingBuf<T>::resize(uint32_t size)
 template <class T>
 void AudioRingBuf<T>::push(T *data)
 {
-	_fx->_arb.queue(head, data, sizeof(T), sizeof(T), AUDIO_BUFSIZE << 1, sizeof(T));
+	fx._arb.queue(head, data, sizeof(T), sizeof(T), AUDIO_BUFSIZE << 1, sizeof(T));
 
 	head += (AUDIO_BUFSIZE << 1);
 	count = min(cap, count+1);
@@ -44,8 +43,8 @@ void AudioRingBuf<T>::push(T *data)
 template <class T>
 void AudioRingBuf<T>::push(T *leftBlock, T *rightBlock)
 {
-	_fx->_arb.queue(head, leftBlock, sizeof(T) * 2, sizeof(T), AUDIO_BUFSIZE, sizeof(T));
-	_fx->_arb.queue(head + 1, rightBlock, sizeof(T) * 2, sizeof(T), AUDIO_BUFSIZE, sizeof(T));
+	fx._arb.queue(head, leftBlock, sizeof(T) * 2, sizeof(T), AUDIO_BUFSIZE, sizeof(T));
+	fx._arb.queue(head + 1, rightBlock, sizeof(T) * 2, sizeof(T), AUDIO_BUFSIZE, sizeof(T));
 
 	head += (AUDIO_BUFSIZE << 1);
 	count = min(cap, count+1);
@@ -76,8 +75,8 @@ template <class T>
 void AudioRingBuf<T>::pop(T *leftBlock, T *rightBlock, void (*fn)(void))
 {
 	if(count > 0){
-		_fx->_arb.queue(leftBlock, tail, sizeof(T), sizeof(T) * 2, AUDIO_BUFSIZE, sizeof(T));
-		_fx->_arb.queue(rightBlock, tail + 1, sizeof(T), sizeof(T) * 2, AUDIO_BUFSIZE, sizeof(T), fn);
+		fx._arb.queue(leftBlock, tail, sizeof(T), sizeof(T) * 2, AUDIO_BUFSIZE, sizeof(T));
+		fx._arb.queue(rightBlock, tail + 1, sizeof(T), sizeof(T) * 2, AUDIO_BUFSIZE, sizeof(T), fn);
 
 		tail += (AUDIO_BUFSIZE << 1);
 		count--;
@@ -123,15 +122,15 @@ void AudioRingBuf<T>::peek(T *leftBlock, T *rightBlock, uint32_t offset)
 	}
 	else ptr = tail + (AUDIO_BUFSIZE << 1) * offset;
 
-	_fx->_arb.queue(leftBlock, ptr, sizeof(T), sizeof(T) * 2, AUDIO_BUFSIZE, sizeof(T));
-	_fx->_arb.queue(rightBlock, ptr + 1, sizeof(T), sizeof(T) * 2, AUDIO_BUFSIZE, sizeof(T));
+	fx._arb.queue(leftBlock, ptr, sizeof(T), sizeof(T) * 2, AUDIO_BUFSIZE, sizeof(T));
+	fx._arb.queue(rightBlock, ptr + 1, sizeof(T), sizeof(T) * 2, AUDIO_BUFSIZE, sizeof(T));
 }
 
 template <class T>
 void AudioRingBuf<T>::clear( T *ptr )
 {
 	//memset(ptr, 0, sizeof(T) * (AUDIO_BUFSIZE << 1));
-	_fx->_arb.queue(ptr, zero, sizeof(T), 0, AUDIO_BUFSIZE << 1, sizeof(T));
+	fx._arb.queue(ptr, zero, sizeof(T), 0, AUDIO_BUFSIZE << 1, sizeof(T));
 }
 
 template <class T>
@@ -224,8 +223,8 @@ template <class T>
 void AudioRingBuf<T>::peekBack(T *left, T *right, uint32_t offset, void (*fn)(void)){
 	T *ptr = peekBack(offset);
 
-	_fx->_arb.queue(left, ptr, sizeof(T), (sizeof(T) << 1), AUDIO_BUFSIZE, sizeof(T));
-	_fx->_arb.queue(right, ptr + 1, sizeof(T), (sizeof(T) << 1), AUDIO_BUFSIZE, sizeof(T), fn);
+	fx._arb.queue(left, ptr, sizeof(T), (sizeof(T) << 1), AUDIO_BUFSIZE, sizeof(T));
+	fx._arb.queue(right, ptr + 1, sizeof(T), (sizeof(T) << 1), AUDIO_BUFSIZE, sizeof(T), fn);
 }
 
 template <class T>
@@ -266,8 +265,8 @@ void AudioRingBuf<T>::peekBack(T *left, T *right, uint32_t offset, uint32_t size
 #if 0
 	}
 	else{
-		_fx->_arb.queue(left, ptr, sizeof(T), (sizeof(T) << 1), size, sizeof(T));
-		_fx->_arb.queue(right, ptr + 1, sizeof(T), (sizeof(T) << 1), size, sizeof(T), fn);
+		fx._arb.queue(left, ptr, sizeof(T), (sizeof(T) << 1), size, sizeof(T));
+		fx._arb.queue(right, ptr + 1, sizeof(T), (sizeof(T) << 1), size, sizeof(T), fn);
 	}
 #endif
 }

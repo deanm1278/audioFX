@@ -141,7 +141,7 @@ public:
     	this->gain = gain;
     	algorithm->getOutput(buf, this);
 
-    	//increment time
+    	//increment time TODO: this is not great as non-integer frequencies don't line up right
     	t = (t + FM_INC*AUDIO_BUFSIZE) & ~(_F28_INTEGER_MASK << 1);
     	ms += 2;
     }

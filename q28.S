@@ -7,6 +7,7 @@
 #endif
 
 #include <bf706_device.h>
+#include "audioFX_config.h"
 
 .align 2
 .global __mult_q16;
@@ -37,7 +38,6 @@ __mult_q16:
 .global __mult_q28xq28;
 .type __mult_q28xq28, STT_FUNC;
 __mult_q28xq28:
-	LINK 0;
 	[--SP] = A0.x;
 	[--SP] = A0.w;
 	[--SP] = A1.x;
@@ -57,56 +57,120 @@ __mult_q28xq28:
 	A1.x = [SP++];
 	A0.w = [SP++];
 	A0.x = [SP++];
-	UNLINK;
 	RTS;
 
+
+.extern __fm_sine;
+.type __fm_sine,STT_OBJECT;
+
+/*
+ * q31 _fm_modulate(q28 t, q31 *buf, q16 *cFreq, q31 *mod, q31 *vol);
+ */
 .align 2
-.global __mult_q28xq16_mod;
-.type __mult_q28xq16_mod, STT_FUNC;
-__mult_q28xq16_mod:
-	LINK 0;
+.global __fm_modulate;
+.type __fm_modulate, STT_FUNC;
+__fm_modulate:
+	[--SP] = P2;
+	[--SP] = P3;
+	P2 = [SP+20]; //mod_buf
+	P3 = [SP+24]; //volume_buf
+
 	[--SP] = ( R7:2 );
+	[--SP] = ( P5:4 );
+	[--SP] = P1;
+	[--SP] = P0;
 	[--SP] = A0.x;
 	[--SP] = A0.w;
 	[--SP] = A1.x;
 	[--SP] = A1.w;
+	[--sp] = LC0;
+	[--sp] = LT0;
+	[--sp] = LB0;
 
-	R6 = R0 >> 12; //q28_hi = q28 >> 12
+	P0 = R1; //buf
+	P1 = R2; //cfreq
+	P4.H = __fm_sine;
+	P4.L = __fm_sine;
 
-	R7.L = 0x0FFF;
-	R7.H = 0;
-	R5 = R0 & R7; //q28_lo = (q28 & 0x00000FFF)
+	R6 = FM_LOOKUP_MASK;
 
-	R4 = R1 << 12;
-	R7.L = LO(0x1FFFFFFF);
-	R7.H = HI(0x1FFFFFFF);
-	R4 = R4 & R7; //q16_lo = (q16 << 12) & 0x1FFFFFFF
+	R7 = AUDIO_BUFSIZE;
+	LC0 = R7;
+	LOOP fmLoop LC0;
+	LOOP_BEGIN fmLoop;
+		R1 = [P1] || R7 = R1 << 12;
+		P1 += 4;
 
-	R3 = R1 >> 16; //q16_hi = (q16 >> 16)
+		R5 = R1 >> 16;
+		R3 = 0xFFF0;
+		R5 = R5 & R3;
 
-	//TODO: this may not work... may lose integer
-	R6 *= R1;
-	R6 =  R6 >> 4; //acc1 = ((q28_hi * q16) >> 4)
+		(R3:R2) = ((A1:0) = R0 * R7) (TFU);
+		(R5:R4) = ((A1:0) = R0 * R5) (TFU);
 
-	//TODO: this loses 3 bits of precision.. fix
-	A1 = R4.L * R5.L (FU);
-	A1 = A1 >> 16;
-	A0 = R4.H * R5.H, A1 += R4.H * R5.L (M);
-	A1 += R5.H * R4.L (M);
-	A1 = A1 >>> 15;
-	R2 = (A0 += A1);
+		R3 <<= 4;
 
-	R2 = R2 << 3; //acc2 = q28_mul(q16_lo, q28_lo)
+		R2 = R3 + R4; // R2 = pi*freq*t
+		R2 <<= 1; // R2 = 2*pi*freq*t
 
-	R5 *= R3;
-	R2 = R2 + R5; //acc2 = acc2 + (q28_lo * q16_hi)
+        // scale down mods by pi and to q28, add to R2
+		R3 = [P2];
+		P2 += 4;
+		R4 = 0XA2F9836;
+		R3 = R3 * R4;
+		R2 = R2 + R3;
 
-	R0 = R2 + R6; //return acc1 + acc2
+		R2 = R2 & R6; //mask off anything greater than 2pi
 
+		//pos0 = (q28 * mul) >> 38
+		R3 = FM_LOOKUP_MUL;
+		R4 = R2 * R3; // (this automatically shifts 31)
+		R4 >>= 7;
+
+		R4 <<= 3; //first 4 bytes are the position, next 4 are the derivative
+		R5 = P4;
+		R4 = R4 + R5;
+		P5 = R4;
+		R4 = [P5]; //val = y[pos0]
+
+#if 0
+		//This doesn't seem to be giving any extra resolution
+		R5 = FM_LOOKUP_MOD;
+		R5 = R2 & R5;
+		R3 = [P5 + 4];
+		R5 <<= 12;
+		R5 = R5 * R3;
+		R4 = R4 + R5;
+#endif
+
+		//multiply by volume
+		R3 = [P3];
+		P3 += 4;
+		R4 = R4 * R3;
+
+		//add to output
+		R3 = [P0];
+		R4 = R4 + R3;
+		[P0] = R4;
+		P0 += 4;
+
+		//increment time step
+		R7 = FM_LOOKUP_INC;
+		R0 = R0 + R7;
+
+	LOOP_END fmLoop;
+
+	LB0 = [sp++];
+	LT0 = [sp++];
+	LC0 = [sp++];
 	A1.w = [SP++];
 	A1.x = [SP++];
 	A0.w = [SP++];
 	A0.x = [SP++];
+	P0 = [SP++];
+	P1 = [SP++];
+	( P5 : 4 ) = [ SP ++ ];
 	( R7 : 2 ) = [ SP ++ ];
-	UNLINK;
+	P3 = [SP++];
+	P2 = [SP++];
 	RTS;

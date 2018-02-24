@@ -29,37 +29,16 @@ void Operator::getOutput(q31 *buf, Voice *voice) {
             	mods[ix]->getOutput(mod_buf, voice);
         }
 
-        //scale down by pi and to q28
-    	q31 *ptr = mod_buf;
-    	for(int i=0; i<AUDIO_BUFSIZE; i++)
-        	*ptr++ = __builtin_bfin_mult_fr1x32x32(*ptr, _F( (1.0/PI)*.25) );
-
         //calculate envelope
         q31 volume_buf[AUDIO_BUFSIZE];
         volume.getOutput(volume_buf, voice);
 
         q28 t = voice->getT();
-        q28 x;
-
         q16 cfreq[AUDIO_BUFSIZE];
         carrier->getOutput(cfreq);
 
-        ptr = buf;
+        _fm_modulate(t, buf, cfreq, mod_buf, volume_buf);
 
-        for(int i=0; i<AUDIO_BUFSIZE; i++){
-
-			x = _mult_q28xq16_mod(t, cfreq[i]);
-
-			x *= 4; //multiply by 2 and scale up to units of pi/2 (multiply by 2 again)
-
-			q31 result = sin_q28(x + mod_buf[i]);
-
-	        //add to the output
-	        *ptr++ = __builtin_bfin_add_fr1x32(*ptr, __builtin_bfin_mult_fr1x32x32(result, volume_buf[i]));
-
-	        //increment the time step
-	        t = (t + FM_INC) & ~(_F28_INTEGER_MASK << 1);
-        }
         calculated = true;
     }
 }

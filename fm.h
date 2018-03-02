@@ -52,7 +52,7 @@ public:
 
     typedef struct {
         T level;
-        uint32_t time;
+        int32_t time;
     } envParam;
 
     envParam attack,

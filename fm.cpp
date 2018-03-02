@@ -9,6 +9,7 @@
 
 Operator::Operator() : volume() {
     isCarrier = false;
+    carrier = NULL;
 
     for(int i=0; i<OP_MAX_INPUTS; i++)
         mods[i] = NULL;
@@ -37,7 +38,7 @@ void Operator::getOutput(q31 *buf, Voice *voice) {
         q16 cfreq[AUDIO_BUFSIZE];
         carrier->getOutput(cfreq);
 
-        _fm_modulate(t, buf, cfreq, mod_buf, volume_buf);
+        _fm_modulate(t, buf, cfreq, mod_buf, volume_buf, voice->gain);
 
         calculated = true;
     }
@@ -53,13 +54,6 @@ void Algorithm::getOutput(q31 *buf, Voice *voice) {
             ops[i]->getOutput(buf, voice);
         }
     }
-
-    //gain down
-    q31 gain = voice->gain;
-    q31 *ptr = buf;
-
-    for(int i=0; i<AUDIO_BUFSIZE; i++)
-    	*ptr++ = __builtin_bfin_mult_fr1x32x32(*ptr, gain);
 }
 
 template <>
@@ -102,7 +96,7 @@ void Envelope<T>::getOutput(T *buf, Voice *voice){
                 //Sustain
                 result = sustain.level;
             }
-            else if(ms >= attack.time){
+            else if(ms > attack.time){
                 //Decay
             	result = attack.level + (decay.level - attack.level)/decay.time * (ms - attack.time);
             }

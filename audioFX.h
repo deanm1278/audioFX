@@ -31,8 +31,6 @@ class AudioFX : public I2S
 public:
 	AudioFX( void );
 	bool begin( void );
-	void processBuffer( void );
-	void setCallback( void (*fn)(int32_t *, int32_t *) );
 	void setHook( void (*fn)(int32_t *) ){ audioHook = fn; }
 
 	void interleave(int32_t *dest, int32_t * left, int32_t *right);
@@ -49,7 +47,6 @@ public:
 
 private:
 	ak4558 iface;
-	void (*audioCallback)(int32_t *, int32_t *);
 };
 
 extern AudioFX fx;

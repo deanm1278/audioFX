@@ -12,7 +12,7 @@
 //TODO: fix this once we can get a more accurate MCLK / FS sync
 
 #define FS (AUDIO_SAMPLE_RATE*2) //around 48khz
-#define BCLK (32 * FS)
+#define BCLK (64 * FS)
 #define WLEN 32
 
 #define BCLK_PIN 10
@@ -20,21 +20,13 @@
 #define AD0_PIN 9
 #define BD0_PIN 6
 
-#define MCLK_PIN 2
-
 typedef int32_t audioBuf[AUDIO_BUFSIZE << 1];
 
 static audioBuf buffers[3];
 static audioBuf *procBuf;
 
-static int32_t procLeft[AUDIO_BUFSIZE];
-static int32_t procRight[AUDIO_BUFSIZE];
-
-static volatile bool bufReady;
-
 void (*AudioFX::audioHook)(int32_t *);
 
-Timer AudioFX::_tmr(MCLK_PIN);
 MdmaArbiter AudioFX::_arb;
 
 uint8_t AudioFX::tempPool[AUDIO_TEMP_POOL_SIZE];
@@ -49,8 +41,6 @@ static volatile uint8_t intCount = 0;
 
 AudioFX::AudioFX( void ) : I2S(SPORT0, BCLK_PIN, FS_PIN, AD0_PIN, BD0_PIN), iface()
 {
-	bufReady = false;
-	audioCallback = NULL;
 	audioHook = NULL;
 
 	dRead0.CFG.reg =  (4UL << 16) | (DMA_CFG_FLOW_DSCL << 12) | (DMA_MSIZE_4_BYTES << 8) |
@@ -119,27 +109,6 @@ bool AudioFX::begin( void )
 	return true;
 }
 
-void AudioFX::processBuffer( void )
-{
-	if(bufReady){
-		if(audioCallback != NULL){
-			audioCallback(procLeft, procRight);
-			//re-interleave the buffers using the core now that we're done w/ our processing algo
-			int32_t *d = *procBuf;
-
-			//TODO: this doesn't work rn
-			int32_t *l = procLeft;
-			int32_t *r = procRight;
-			for(int i=0; i<AUDIO_BUFSIZE; i++){
-				*d++ = *l++;
-				*d++ = *r++;
-			}
-		}
-		bufReady = false;
-	}
-
-}
-
 void AudioFX::interleave(int32_t *dest, int32_t * left, int32_t *right)
 {
 	_arb.queue(dest, left, sizeof(int32_t) * 2, sizeof(int32_t), AUDIO_BUFSIZE, sizeof(int32_t));
@@ -155,11 +124,6 @@ void AudioFX::deinterleave(int32_t * left, int32_t *right, int32_t *src, void (*
 void AudioFX::deinterleave(int32_t * left, int32_t *right, int32_t *src)
 {
 	deinterleave(left, right, src, NULL);
-}
-
-void AudioFX::setCallback( void (*fn)(int32_t *, int32_t *) )
-{
-	audioCallback = fn;
 }
 
 uint8_t *AudioFX::tempAlloc(void *data, uint8_t size)

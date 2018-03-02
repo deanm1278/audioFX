@@ -29,7 +29,7 @@ bool ak4558::begin(uint8_t addr) {
 	_control1.bit.DIF = 0x07; //32 bit i2s for now
 	write8(AK4558_CONTROL_1, _control1.reg);
 
-	_modeControl.bit.FS = 0x04; //48kHz
+	_modeControl.bit.FS = 0x06; //48kHz
 	_modeControl.bit.LOPS = 1;
 	write8(AK4558_MODE_CONTROL, _modeControl.reg);
 

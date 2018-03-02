@@ -64,7 +64,7 @@ __mult_q28xq28:
 .type __fm_sine,STT_OBJECT;
 
 /*
- * q31 _fm_modulate(q28 t, q31 *buf, q16 *cFreq, q31 *mod, q31 *vol);
+ * q31 _fm_modulate(q28 t, q31 *buf, q16 *cFreq, q31 *mod, q31 *vol, q31 gain);
  */
 .align 2
 .global __fm_modulate;
@@ -72,20 +72,21 @@ __mult_q28xq28:
 __fm_modulate:
 	[--SP] = P2;
 	[--SP] = P3;
-	P2 = [SP+20]; //mod_buf
-	P3 = [SP+24]; //volume_buf
+	[--SP] = R3;
+	P2 = [SP+24]; //mod_buf
+	P3 = [SP+28]; //volume_buf
+	R3 = [SP+32]; //gain
 
-	[--SP] = ( R7:2 );
-	[--SP] = ( P5:4 );
+	[--SP] = ( R7:3, P5:4 );
 	[--SP] = P1;
 	[--SP] = P0;
 	[--SP] = A0.x;
 	[--SP] = A0.w;
 	[--SP] = A1.x;
 	[--SP] = A1.w;
-	[--sp] = LC0;
-	[--sp] = LT0;
-	[--sp] = LB0;
+	[--SP] = ASTAT;
+
+	[--SP] = R3;
 
 	P0 = R1; //buf
 	P1 = R2; //cfreq
@@ -98,7 +99,8 @@ __fm_modulate:
 	LC0 = R7;
 	LOOP fmLoop LC0;
 	LOOP_BEGIN fmLoop;
-		R1 = [P1] || R7 = R1 << 12;
+		R1 = [P1];
+		R7 = R1 << 12;
 		P1 += 4;
 
 		R5 = R1 >> 16;
@@ -148,6 +150,10 @@ __fm_modulate:
 		P3 += 4;
 		R4 = R4 * R3;
 
+		//multiply by gain
+		R3 = [SP];
+		R4 = R4 * R3;
+
 		//add to output
 		R3 = [P0];
 		R4 = R4 + R3;
@@ -160,17 +166,17 @@ __fm_modulate:
 
 	LOOP_END fmLoop;
 
-	LB0 = [sp++];
-	LT0 = [sp++];
-	LC0 = [sp++];
+	SP+=4;
+
+	ASTAT = [SP++];
 	A1.w = [SP++];
 	A1.x = [SP++];
 	A0.w = [SP++];
 	A0.x = [SP++];
 	P0 = [SP++];
 	P1 = [SP++];
-	( P5 : 4 ) = [ SP ++ ];
-	( R7 : 2 ) = [ SP ++ ];
+	( R7:2, P5:4 ) = [ SP ++ ];
+	R7 = [SP++];
 	P3 = [SP++];
 	P2 = [SP++];
 	RTS;

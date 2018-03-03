@@ -115,11 +115,13 @@ __fm_modulate:
 		R2 = R3 + R4; // R2 = pi*freq*t
 		R2 <<= 1; // R2 = 2*pi*freq*t
 
-        // scale down mods by pi and to q28, add to R2
 		R3 = [P2];
 		P2 += 4;
+#if 0
+		// scale down mods by pi and to q28
 		R4 = 0XA2F9836;
 		R3 = R3 * R4;
+#endif
 		R2 = R2 + R3;
 
 		R2 = R2 & R6; //mask off anything greater than 2pi

@@ -142,7 +142,7 @@ public:
     	algorithm->getOutput(buf, this);
 
     	//increment time TODO: this is not great as non-integer frequencies don't line up right
-    	t = (t + FM_INC*AUDIO_BUFSIZE) & ~(_F28_INTEGER_MASK << 1);
+    	t = (t + FM_INC*AUDIO_BUFSIZE) & ~(_F28_INTEGER_MASK << 2);
     	ms += 2;
     }
     void trigger(bool state) {

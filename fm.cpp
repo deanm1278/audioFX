@@ -58,7 +58,7 @@ void Algorithm::getOutput(q31 *buf, Voice *voice) {
 
 template <>
 void Envelope<q31>::setDefaults(){
-    attack  = { _F(0), 0 };
+    attack  = { _F(.999), 0 };
     decay   = { _F(0), 0 };
     sustain = { _F(.999), 0 };
     release = { _F(0), 0 };

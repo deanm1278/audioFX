@@ -13,24 +13,38 @@
 .global __mult_q16;
 .type __mult_q16, STT_FUNC;
 __mult_q16:
-	LINK 0;
+	[--SP] = ( R7:2 );
+	[--SP] = P0;
 	[--SP] = A0.x;
 	[--SP] = A0.w;
 	[--SP] = A1.x;
 	[--SP] = A1.w;
+	[--SP] = ASTAT;
 
-	A1 = R0.L * R1.L (FU);
-	A1 = A1 >> 16;
-	A0 = R0.H * R1.H, A1 += R0.H * R1.L (FU);
-	A1 += R1.H * R0.L (FU);
-	A0 = A0 << 16;
-	R0 = (A0 += A1);
+	P0 = R0;
 
+	R7 = AUDIO_BUFSIZE;
+	LC0 = R7;
+	LOOP mult16Loop LC0;
+	LOOP_BEGIN mult16Loop;
+		R2 = [P0];
+
+		(R5:R4) = ((A1:0) = R2 * R1) (TFU);
+		R5 <<= 16;
+		R4 >>= 16;
+
+		R2 = R5 | R4;
+		[P0] = R2;
+		P0 += 4;
+	LOOP_END mult16Loop;
+
+	ASTAT = [SP++];
 	A1.w = [SP++];
 	A1.x = [SP++];
 	A0.w = [SP++];
 	A0.x = [SP++];
-	UNLINK;
+	P0 = [SP++];
+	( R7:2 ) = [ SP ++ ];
 	RTS;
 
 

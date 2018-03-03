@@ -99,9 +99,7 @@ public:
     //TODO: this can be optimized if carrier is always static
     void getOutput(q16 *buf){
     	source->carrier->getOutput(buf);
-
-    	for(int i=0; i<AUDIO_BUFSIZE; i++)
-    		*buf++ = _mult_q16(*buf, ratio);
+    	_mult_q16(buf, this->ratio);
     }
 
     Operator *source;

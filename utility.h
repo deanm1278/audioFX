@@ -32,7 +32,7 @@ extern q28 _fm_pos;
 extern "C" {
 extern q28 _mult_q28xq16_mod(q28 a, q16 b);
 extern q28 _mult_q28xq28(q28 a, q28 b);
-extern q16 _mult_q16(q16 a, q16 b);
+extern q16 _mult_q16(q16 *buf, q16 num);
 extern q31 _fm_modulate(q28 t, q31 *buf, q16 *cFreq, q31 *mod, q31 *vol, q31 gain);
 };
 

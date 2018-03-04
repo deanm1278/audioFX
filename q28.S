@@ -191,8 +191,135 @@ __fm_modulate:
 	A0.x = [SP++];
 	P0 = [SP++];
 	P1 = [SP++];
-	( R7:2, P5:4 ) = [ SP ++ ];
-	R7 = [SP++];
+	( R7:3, P5:4 ) = [ SP ++ ];
+	R3 = [SP++];
+	P3 = [SP++];
+	P2 = [SP++];
+	RTS;
+
+/* void _fm_modulate_feedback(q28 t, q31 *buf, q16 *cFreq, q31 *volume_buf, q31 gain, q31 feedbackLevel, q31 *lastFeedback); */
+.align 2
+.global __fm_modulate_feedback;
+.type __fm_modulate_feedback, STT_FUNC;
+__fm_modulate_feedback:
+	[--SP] = P2;
+	[--SP] = P3;
+	[--SP] = R3;
+	[--SP] = R4;
+	P3 = [SP+28]; //volume_buf
+	R3 = [SP+32]; //gain
+	R4 = [SP+36]; //feedbackLevel
+	P2 = [SP+40]; //lastFeedback
+
+	[--SP] = ( R7:5, P5:4 );
+	[--SP] = P1;
+	[--SP] = P0;
+	[--SP] = A0.x;
+	[--SP] = A0.w;
+	[--SP] = A1.x;
+	[--SP] = A1.w;
+	[--SP] = ASTAT;
+
+	[--SP] = R4;
+	[--SP] = R3;
+
+	P0 = R1; //buf
+	P1 = R2; //cfreq
+	P4.H = __fm_sine;
+	P4.L = __fm_sine;
+
+	R6 = FM_LOOKUP_MASK;
+
+	R7 = AUDIO_BUFSIZE;
+	LC0 = R7;
+	LOOP fmFeedbackLoop LC0;
+	LOOP_BEGIN fmFeedbackLoop;
+		R1 = [P1];
+		R7 = R1 << 12;
+		P1 += 4;
+
+		R5 = R1 >> 16;
+		R3 = 0xFFF0;
+		R5 = R5 & R3;
+
+		(R3:R2) = ((A1:0) = R0 * R7) (TFU);
+		(R5:R4) = ((A1:0) = R0 * R5) (TFU);
+
+		R3 <<= 4;
+
+		R2 = R3 + R4; // R2 = pi*freq*t
+		R2 <<= 1; // R2 = 2*pi*freq*t
+
+		R3 = [P2];
+#if 1
+		// scale down mods by pi and to q28
+		R4 = 0XA2F9836;
+		R3 = R3 * R4;
+#endif
+		R4 = [SP+4];
+		R3 = R3 * R4; //multiply by feedback level
+
+		R2 = R2 + R3;
+
+		R2 = R2 & R6; //mask off anything greater than 2pi
+
+		//pos0 = (q28 * mul) >> 38
+		R3 = FM_LOOKUP_MUL;
+		R4 = R2 * R3; // (this automatically shifts 31)
+		R4 >>= 7;
+
+		R4 <<= 3; //first 4 bytes are the position, next 4 are the derivative
+		R5 = P4;
+		R4 = R4 + R5;
+		P5 = R4;
+		R4 = [P5]; //val = y[pos0]
+
+#if 0
+		//This doesn't seem to be giving any extra resolution
+		R5 = FM_LOOKUP_MOD;
+		R5 = R2 & R5;
+		R3 = [P5 + 4];
+		R5 <<= 12;
+		R5 = R5 * R3;
+		R4 = R4 + R5;
+#endif
+
+		//store in feedback param
+		[P2] = R4;
+
+		//multiply by volume
+		R3 = [P3];
+		P3 += 4;
+		R4 = R4 * R3;
+
+		//multiply by gain
+		R3 = [SP];
+		R4 = R4 * R3;
+
+		//add to output
+		R3 = [P0];
+		R4 = R4 + R3;
+		[P0] = R4;
+		P0 += 4;
+
+		//increment time step
+		R7 = FM_LOOKUP_INC;
+		R0 = R0 + R7;
+
+	LOOP_END fmFeedbackLoop;
+
+	SP+=8;
+
+	ASTAT = [SP++];
+	A1.w = [SP++];
+	A1.x = [SP++];
+	A0.w = [SP++];
+	A0.x = [SP++];
+	P0 = [SP++];
+	P1 = [SP++];
+	( R7:5, P5:4 ) = [ SP ++ ];
+	R4 = [SP++];
+	R3 = [SP++];
 	P3 = [SP++];
 	P2 = [SP++];
 	RTS;

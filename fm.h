@@ -15,8 +15,21 @@
 #define FM_MAX_OPERATORS 6
 #define FM_MAX_ENVELOPES FM_MAX_OPERATORS
 
+#define RATIO_MIN_SECOND 	.05946
+#define RATIO_MAJ_SECOND 	.12246
+#define RATIO_MIN_THIRD 	.18921
+#define RATIO_MAJ_THIRD 	.25992
+#define RATIO_FOURTH		.33483
+#define RATIO_DIM_FIFTH		.41421
+#define RATIO_FIFTH			.49831
+#define RATIO_MIN_SIXTH		.58760
+#define RATIO_MAJ_SIXTH		.68179
+#define RATIO_MIN_SEVENTH	.78180
+#define RATIO_MAJ_SEVENTH	.88775
+
 class Voice;
 class Operator;
+class Algorithm;
 
 /************* BASE MODULATOR CLASS **************/
 template<class T> class Modulator {
@@ -76,6 +89,7 @@ public:
      * If a circular reference is encountered, the previous calculation is used
      */
     void getOutput(q31 *buf, Voice *voice);
+    void setCarrier(Modulator<q16> *mod=NULL);
 
     Operator *mods[OP_MAX_INPUTS];
 
@@ -83,8 +97,14 @@ public:
 
     Envelope<q31> volume;
 
-    bool isCarrier;
-private:
+    bool isOutput;
+
+    q31 feedbackLevel;
+
+    friend class Algorithm;
+
+protected:
+    bool carrierOverride;
 };
 
 /************* RATIO FREQUENCY CLASS **************/
@@ -153,6 +173,12 @@ public:
     volatile bool active;
     uint32_t ms;
     q31 gain;
+
+    friend class Operator;
+
+protected:
+    //TODO: this currently only allows one feedback operator. Fix if necessary.
+    q31 lastFeedback;
 
 private:
     q28 t;

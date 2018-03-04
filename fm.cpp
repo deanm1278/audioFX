@@ -8,18 +8,28 @@
 #include "fm.h"
 
 Operator::Operator() : volume() {
-    isCarrier = false;
+    isOutput = false;
+    carrierOverride = false;
     carrier = NULL;
+    feedbackLevel = 0;
 
     for(int i=0; i<OP_MAX_INPUTS; i++)
         mods[i] = NULL;
+}
+
+void Operator::setCarrier(Modulator<q16> *mod)
+{
+	if(mod == NULL) carrierOverride = false;
+	else{
+		carrierOverride = true;
+		carrier = mod;
+	}
 }
 
 // calculate the output and add it to buf
 void Operator::getOutput(q31 *buf, Voice *voice) {
 
     if(!calculated){
-        if(isCarrier) carrier = voice;
 
     	//calculate modulators
     	q31 mod_buf[AUDIO_BUFSIZE];
@@ -38,19 +48,24 @@ void Operator::getOutput(q31 *buf, Voice *voice) {
         q16 cfreq[AUDIO_BUFSIZE];
         carrier->getOutput(cfreq);
 
-        _fm_modulate(t, buf, cfreq, mod_buf, volume_buf, voice->gain);
+        if(feedbackLevel == 0)
+        	_fm_modulate(t, buf, cfreq, mod_buf, volume_buf, voice->gain);
+        else
+        	_fm_modulate_feedback(t, buf, cfreq, volume_buf, voice->gain, feedbackLevel, &voice->lastFeedback);
 
         calculated = true;
     }
 }
 
 void Algorithm::getOutput(q31 *buf, Voice *voice) {
-    for(int i=0; i<numOps; i++)
+    for(int i=0; i<numOps; i++){
         ops[i]->calculated = false;
+        if(ops[i]->isOutput && !ops[i]->carrierOverride) ops[i]->carrier = voice;
+    }
 
     for(int i=0; i<numOps; i++){
         //set carriers to the voice frequency and calculate
-        if(ops[i]->isCarrier){
+        if(ops[i]->isOutput){
             ops[i]->getOutput(buf, voice);
         }
     }

@@ -33,8 +33,8 @@ extern "C" {
 extern q28 _mult_q28xq16_mod(q28 a, q16 b);
 extern q28 _mult_q28xq28(q28 a, q28 b);
 extern void _mult_q16(q16 *buf, q16 num);
-extern void _fm_modulate(q28 t, q31 *buf, q16 *cFreq, q31 *mod, q31 *vol, q31 gain);
-extern void _fm_modulate_feedback(q28 t, q31 *buf, q16 *cFreq, q31 *volume_buf, q31 gain, q31 feedbackLevel, q31 *lastFeedback);
+extern void _fm_modulate(q28 t, q31 *buf, q16 *cFreq, q31 *mod, q31 *vol);
+extern void _fm_modulate_feedback(q28 t, q31 *buf, q16 *cFreq, q31 *volume_buf, q31 feedbackLevel, q31 *lastFeedback);
 };
 
 static inline int32_t q_mod(int32_t a, uint32_t mask){

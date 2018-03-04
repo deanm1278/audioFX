@@ -78,7 +78,7 @@ __mult_q28xq28:
 .type __fm_sine,STT_OBJECT;
 
 /*
- * q31 _fm_modulate(q28 t, q31 *buf, q16 *cFreq, q31 *mod, q31 *vol, q31 gain);
+ * q31 _fm_modulate(q28 t, q31 *buf, q16 *cFreq, q31 *mod, q31 *vol);
  */
 .align 2
 .global __fm_modulate;
@@ -86,10 +86,8 @@ __mult_q28xq28:
 __fm_modulate:
 	[--SP] = P2;
 	[--SP] = P3;
-	[--SP] = R3;
-	P2 = [SP+24]; //mod_buf
-	P3 = [SP+28]; //volume_buf
-	R3 = [SP+32]; //gain
+	P2 = [SP+20]; //mod_buf
+	P3 = [SP+24]; //volume_buf
 
 	[--SP] = ( R7:3, P5:4 );
 	[--SP] = P1;
@@ -99,8 +97,6 @@ __fm_modulate:
 	[--SP] = A1.x;
 	[--SP] = A1.w;
 	[--SP] = ASTAT;
-
-	[--SP] = R3;
 
 	P0 = R1; //buf
 	P1 = R2; //cfreq
@@ -166,10 +162,6 @@ __fm_modulate:
 		P3 += 4;
 		R4 = R4 * R3;
 
-		//multiply by gain
-		R3 = [SP];
-		R4 = R4 * R3;
-
 		//add to output
 		R3 = [P0];
 		R4 = R4 + R3;
@@ -182,8 +174,6 @@ __fm_modulate:
 
 	LOOP_END fmLoop;
 
-	SP+=4;
-
 	ASTAT = [SP++];
 	A1.w = [SP++];
 	A1.x = [SP++];
@@ -192,12 +182,11 @@ __fm_modulate:
 	P0 = [SP++];
 	P1 = [SP++];
 	( R7:3, P5:4 ) = [ SP ++ ];
-	R3 = [SP++];
 	P3 = [SP++];
 	P2 = [SP++];
 	RTS;
 
-/* void _fm_modulate_feedback(q28 t, q31 *buf, q16 *cFreq, q31 *volume_buf, q31 gain, q31 feedbackLevel, q31 *lastFeedback); */
+/* void _fm_modulate_feedback(q28 t, q31 *buf, q16 *cFreq, q31 *volume_buf, q31 feedbackLevel, q31 *lastFeedback); */
 .align 2
 .global __fm_modulate_feedback;
 .type __fm_modulate_feedback, STT_FUNC;
@@ -205,13 +194,11 @@ __fm_modulate_feedback:
 	[--SP] = P2;
 	[--SP] = P3;
 	[--SP] = R3;
-	[--SP] = R4;
-	P3 = [SP+28]; //volume_buf
-	R3 = [SP+32]; //gain
-	R4 = [SP+36]; //feedbackLevel
-	P2 = [SP+40]; //lastFeedback
+	P3 = [SP+24]; //volume_buf
+	R3 = [SP+28]; //feedbackLevel
+	P2 = [SP+32]; //lastFeedback
 
-	[--SP] = ( R7:5, P5:4 );
+	[--SP] = ( R7:4, P5:4 );
 	[--SP] = P1;
 	[--SP] = P0;
 	[--SP] = A0.x;
@@ -220,7 +207,6 @@ __fm_modulate_feedback:
 	[--SP] = A1.w;
 	[--SP] = ASTAT;
 
-	[--SP] = R4;
 	[--SP] = R3;
 
 	P0 = R1; //buf
@@ -256,7 +242,7 @@ __fm_modulate_feedback:
 		R4 = 0XA2F9836;
 		R3 = R3 * R4;
 #endif
-		R4 = [SP+4];
+		R4 = [SP];
 		R3 = R3 * R4; //multiply by feedback level
 
 		R2 = R2 + R3;
@@ -292,10 +278,6 @@ __fm_modulate_feedback:
 		P3 += 4;
 		R4 = R4 * R3;
 
-		//multiply by gain
-		R3 = [SP];
-		R4 = R4 * R3;
-
 		//add to output
 		R3 = [P0];
 		R4 = R4 + R3;
@@ -308,7 +290,7 @@ __fm_modulate_feedback:
 
 	LOOP_END fmFeedbackLoop;
 
-	SP+=8;
+	SP+=4;
 
 	ASTAT = [SP++];
 	A1.w = [SP++];
@@ -317,8 +299,7 @@ __fm_modulate_feedback:
 	A0.x = [SP++];
 	P0 = [SP++];
 	P1 = [SP++];
-	( R7:5, P5:4 ) = [ SP ++ ];
-	R4 = [SP++];
+	( R7:4, P5:4 ) = [ SP ++ ];
 	R3 = [SP++];
 	P3 = [SP++];
 	P2 = [SP++];

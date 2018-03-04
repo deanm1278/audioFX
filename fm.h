@@ -157,7 +157,16 @@ public:
     q28 getT() { return t; }
     void play(q31 *buf, q31 gain) {
     	this->gain = gain;
-    	algorithm->getOutput(buf, this);
+    	q31 tmpBuffer[AUDIO_BUFSIZE];
+    	memset(tmpBuffer, 0, AUDIO_BUFSIZE*sizeof(q31));
+
+    	algorithm->getOutput(tmpBuffer, this);
+
+    	for(int i=0; i<AUDIO_BUFSIZE; i++){
+    		q31 u, v = tmpBuffer[i];
+    		__asm__ volatile("%0 = %1 * %2;" : "=r"(u) : "r"(v), "r"(gain));
+    		buf[i] += u;
+    	}
 
     	//increment time TODO: this is not great as non-integer frequencies don't line up right
     	t = (t + FM_INC*AUDIO_BUFSIZE) & ~(_F28_INTEGER_MASK << 2);

@@ -49,9 +49,9 @@ void Operator::getOutput(q31 *buf, Voice *voice) {
         carrier->getOutput(cfreq);
 
         if(feedbackLevel == 0)
-        	_fm_modulate(t, buf, cfreq, mod_buf, volume_buf, voice->gain);
+        	_fm_modulate(t, buf, cfreq, mod_buf, volume_buf);
         else
-        	_fm_modulate_feedback(t, buf, cfreq, volume_buf, voice->gain, feedbackLevel, &voice->lastFeedback);
+        	_fm_modulate_feedback(t, buf, cfreq, volume_buf, feedbackLevel, &voice->lastFeedback);
 
         calculated = true;
     }
@@ -92,36 +92,53 @@ void Envelope<T>::getOutput(T *buf, Voice *voice){
 
 	//for now calculate the envelope twice per buffer
 	T *ptr = buf;
-	for(int i=0; i<2; i++){
-		T result;
-		uint32_t ms = voice->ms + i;
+	T start[3] = {0, 0, 0};
+	T inc[3] = {0, 0, 0};
+	for(int i=-1; i<2; i++){
+		int idx = i + 1;
+		int32_t ms = voice->ms + i;
         //tick the envelope
 		if(!voice->active){
 			if(voice->ms > release.time){
-				result = release.level;
+				start[idx] = release.level;
+				inc[idx] = 0;
 			}
 			else{
 				//we are in R
-				result = sustain.level + (release.level - sustain.level)/release.time * ms;
+				if(ms == -1)
+					start[idx] = sustain.level;
+				else
+					start[idx] = sustain.level + (release.level - sustain.level)/release.time * ms;
+				inc[idx] = (release.level - sustain.level)/release.time;
 			}
 		}
 		else{
             //we are in ADS
             if(ms >= attack.time + decay.time){
                 //Sustain
-                result = sustain.level;
+                start[idx] = sustain.level;
+                inc[idx] = 0;
             }
             else if(ms > attack.time){
                 //Decay
-            	result = attack.level + (decay.level - attack.level)/decay.time * (ms - attack.time);
+            	start[idx] = attack.level + (decay.level - attack.level)/decay.time * (ms - attack.time);
+            	inc[idx] = (decay.level - attack.level)/decay.time;
             }
             else{
                 //Attack
-            	result = attack.level/attack.time * ms;
+            	if(ms == -1)
+            		start[idx] = 0;
+            	else
+					start[idx] = attack.level/attack.time * ms;
+				inc[idx] = attack.level/attack.time;
             }
         }
-
-        for(int j=0; j<AUDIO_BUFSIZE/2; j++)
-        	*ptr++ = result;
+		inc[idx] = inc[idx]/(AUDIO_BUFSIZE/2);
     }
+
+	for(int i=1; i<=2; i++){
+		*ptr++ = start[i-1];
+		for(int j=1; j<AUDIO_BUFSIZE/2; j++)
+			*ptr++ = *(ptr-1) + inc[i];
+	}
 }

@@ -164,7 +164,7 @@ __fm_modulate:
 
 		//add to output
 		R3 = [P0];
-		R4 = R4 + R3;
+		R4 = R4 + R3 (S);
 		[P0] = R4;
 		P0 += 4;
 

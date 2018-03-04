@@ -163,9 +163,11 @@ public:
     	algorithm->getOutput(tmpBuffer, this);
 
     	for(int i=0; i<AUDIO_BUFSIZE; i++){
-    		q31 u, v = tmpBuffer[i];
-    		__asm__ volatile("%0 = %1 * %2;" : "=r"(u) : "r"(v), "r"(gain));
-    		buf[i] += u;
+    		q31 u, v = tmpBuffer[i], w = buf[i];
+    		__asm__ volatile("R2 = %1 * %2;" \
+    						"%0 = R2 + %3 (S);"
+    						: "=r"(u) : "r"(v), "r"(gain), "r"(w) : "R2");
+    		buf[i] = u;
     	}
 
     	//increment time TODO: this is not great as non-integer frequencies don't line up right

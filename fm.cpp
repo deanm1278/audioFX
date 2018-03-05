@@ -75,6 +75,7 @@ template <>
 void Envelope<q31>::setDefaults(){
     attack  = { _F(.999), 0 };
     decay   = { _F(0), 0 };
+    decay2   = { _F(0), 0 };
     sustain = { _F(.999), 0 };
     release = { _F(0), 0 };
 }
@@ -83,6 +84,7 @@ template <>
 void Envelope<q16>::setDefaults(){
     attack  = { _F16(0), 0 };
     decay   = { _F16(0), 0 };
+    decay2   = { _F16(0), 0 };
     sustain = { _F16(0), 0 };
     release = { _F16(0), 0 };
 }
@@ -114,17 +116,27 @@ void Envelope<T>::getOutput(T *buf, Voice *voice){
 		}
 		else{
             //we are in ADS
-            if(ms >= attack.time + decay.time){
-                //Sustain
-                start[idx] = sustain.level;
-                inc[idx] = 0;
+			if(ms >= attack.time + decay.time + decay2.time){
+				//Sustain
+				start[idx] = sustain.level;
+				inc[idx] = 0;
+			}
+			else if(ms >= attack.time + decay.time){
+            	//Decay2
+				start[idx] = decay.level + (sustain.level - decay.level)/decay2.time * (ms - decay.time);
+				inc[idx] = (sustain.level - decay.level)/decay2.time;
+				voice->hold = true;
             }
             else if(ms > attack.time){
                 //Decay
             	start[idx] = attack.level + (decay.level - attack.level)/decay.time * (ms - attack.time);
             	inc[idx] = (decay.level - attack.level)/decay.time;
+            	voice->hold = true;
+            	voice->interruptable = false;
             }
             else{
+            	voice->hold = true;
+            	voice->interruptable = false;
                 //Attack
             	if(ms == -1)
             		start[idx] = 0;

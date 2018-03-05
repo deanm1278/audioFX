@@ -70,6 +70,7 @@ public:
 
     envParam attack,
              decay,
+			 decay2,
              sustain,
              release;
 private:
@@ -151,12 +152,18 @@ public:
     	active = false;
     	ms = 0;
     	gain = _F(.999);
+    	hold = false;
+    	queueStop = false;
+    	interruptable = true;
+    	lastFeedback = 0;
     }
     ~Voice() {}
 
     q28 getT() { return t; }
     void play(q31 *buf, q31 gain) {
     	this->gain = gain;
+    	this->hold = false;
+    	this->interruptable = true;
     	q31 tmpBuffer[AUDIO_BUFSIZE];
     	memset(tmpBuffer, 0, AUDIO_BUFSIZE*sizeof(q31));
 
@@ -169,21 +176,36 @@ public:
     						: "=r"(u) : "r"(v), "r"(gain), "r"(w) : "R2");
     		buf[i] = u;
     	}
-
+    	if(!this->hold && this->queueStop){
+    		this->active = false;
+    		ms = 0;
+    		this->queueStop = false;
+    	}
+    	else
+        	ms += 2;
     	//increment time TODO: this is not great as non-integer frequencies don't line up right
     	t = (t + FM_INC*AUDIO_BUFSIZE) & ~(_F28_INTEGER_MASK << 2);
-    	ms += 2;
     }
-    void trigger(bool state) {
-        if(state)
+    void trigger(bool state, bool immediateCut = false) {
+        if(state){
             t = 0;
-        active = state;
-        ms = 0;
+            active = true;
+            ms = 0;
+        }
+        if(immediateCut){
+        	active = state;
+        	ms = 0;
+        }
+        else
+        	queueStop = !state;
     }
 
     volatile bool active;
+    volatile bool queueStop;
     uint32_t ms;
     q31 gain;
+    bool hold;
+    bool interruptable;
 
     friend class Operator;
 

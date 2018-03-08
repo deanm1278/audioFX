@@ -7,8 +7,6 @@
 #include "fm.h"
 #include "midi_notes.h"
 
-extern const q31 _fm_sine[];
-
 MIDI_CREATE_INSTANCE(HardwareSerial, Serial1,  MIDI);
 
 volatile bool bufferReady;
@@ -16,9 +14,6 @@ q31 *dataPtr;
 
 static RAMB q31 outputData[AUDIO_BUFSIZE];
 static uint32_t roundRobin = 0;
-static uint32_t lfoCounter = 0;
-static q31 lfoDepth = _F(.5);
-#define LFO_INC 8
 
 void handleNoteOn(byte channel, byte pitch, byte velocity);
 void handleNoteOff(byte channel, byte pitch, byte velocity);
@@ -35,7 +30,11 @@ Algorithm A(ops, NUM_OPERATORS);
 Voice v1(&A), v2(&A), v3(&A), v4(&A), v5(&A), v6(&A), v7(&A), v8(&A);
 Voice *voices[NUM_VOICES] = {&v1, &v2, &v3, &v4, &v5, &v6, &v7, &v8};
 
-RatioFrequency op2Ratio(&op1, _F16(9.0));
+#define LFO_DEPTH .25
+#define LFO_RATE 5.0
+LFO<q31> lfo( _F16(LFO_RATE) );
+
+RatioFrequency op2Ratio(&op1, _F16(4.0));
 RatioFrequency op4Ratio(&op1, _F16(1.0));
 
 void setup()
@@ -57,7 +56,7 @@ void setup()
   //******** DEFINE MODULATOR FREQUENCIES ********//
   op2.setCarrier(&op2Ratio);
   op4.setCarrier(&op4Ratio);
-  op4.feedbackLevel = _F(.01);
+  op4.feedbackLevel = _F(.05);
 
   //******* DEFINE ENVELOPES *******//
 
@@ -105,6 +104,8 @@ void setup()
 
   op4.volume.sustain.level = _F(0);
 
+  lfo.depth = _F(LFO_DEPTH);
+
   //***** END OF PATCH SETUP *****//
 
   Serial.begin(9600);
@@ -131,33 +132,20 @@ void loop()
     MIDI.read();
 
     if(bufferReady){
-//PROFILE("main loop", {
     memset(outputData, 0, AUDIO_BUFSIZE*sizeof(q31));
 
     for(int i=0; i<NUM_VOICES; i++)
       voices[i]->play(outputData, _F(.99/(NUM_VOICES-4)));
 
-    //manually add an LFO TODO: make an LFO class in fm.h
-    q31 lfoBase = _fm_sine[lfoCounter << 1];
-    q31 inc = (_fm_sine[((lfoCounter + LFO_INC) % 1024) << 1] - lfoBase)/AUDIO_BUFSIZE;
+    lfo.getOutput(outputData);
 
     q31 *ptr = outputData;
     for(int i=0; i<AUDIO_BUFSIZE; i++){
-      //TODO: remove asm and use builtin compiler functions once compiler is updated
-      q31 u, v=*ptr++, w=lfoBase;
-      __asm__ volatile("R2 = %1 * %2;" \
-          "R2 = R2 * %3;" \
-          "%0 = %3 - R2 (S);"
-          : "=r"(u) : "r"(w), "r"(lfoDepth), "r"(v) : "R2");
-      lfoBase += inc;
-
-      *dataPtr++ = u;
-      *dataPtr++ = u;
+      *dataPtr++ = *ptr;
+      *dataPtr++ = *ptr++;
     }
 
-    lfoCounter = (lfoCounter + LFO_INC) % 1024;
     bufferReady = false;
-//});
     }
     __asm__ volatile("IDLE;");
 }

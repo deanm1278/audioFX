@@ -16,8 +16,8 @@ q31 *dataPtr;
 static RAMB q31 outputData[AUDIO_BUFSIZE];
 static uint32_t roundRobin = 0;
 
-LFO<q31> lfo( _F16(1.5) );
-#define LFO_DEPTH 0.5
+LFO<q31> lfo( _F16(3.0) );
+#define LFO_DEPTH 0.25
 
 void handleNoteOn(byte channel, byte pitch, byte velocity);
 void handleNoteOff(byte channel, byte pitch, byte velocity);
@@ -132,7 +132,6 @@ void setup()
   op6.volume.release.time = 25;
 
   lfo.depth = _F(LFO_DEPTH);
-  lfo.trigger(true);
 
   //***** END OF PATCH SETUP *****//
 
@@ -219,4 +218,3 @@ void audioHook(q31 *data)
   dataPtr = data;
   bufferReady = true;
 }
-

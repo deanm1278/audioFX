@@ -223,41 +223,21 @@ private:
 /************* LFO CLASS **************/
 template<class T> class LFO : public Modulator<T> {
 public:
-	LFO(q16 rate) : rate(rate), _op(), _opPtr(&_op), _alg(&_opPtr, 1), _voice(&_alg) {
-		depth = 0;
-		_op.isOutput= true;
-		_voice.setOutput(rate);
-	}
+	LFO(q16 rate) : rate(rate), depth(0), t(0) {}
     ~LFO() {}
 
-    void trigger(bool state){ _voice.trigger(state); }
-
     void getOutput(T *buf){
-    	q31 tmpBuffer[AUDIO_BUFSIZE];
-    	memset(tmpBuffer, 0, AUDIO_BUFSIZE*sizeof(q31));
-    	_voice.play(tmpBuffer, depth);
-
-    	q31 *ptr = tmpBuffer;
-    	T *dataPtr = buf;
-    	for(int i=0; i<AUDIO_BUFSIZE; i++){
-		  q31 u, v=*ptr++, w=*dataPtr;
-		  __asm__ volatile("R2 = %1 * %2;" \
-			  "%0 = %1 - R2 (S);"
-			  : "=r"(u) : "r"(w), "r"(v) : "R2");
-
-		  *dataPtr++ = u;
-		}
+    	_lfo_q31(t, buf, rate, depth);
+    	t = (t + FM_INC*AUDIO_BUFSIZE) & ~(_F28_INTEGER_MASK << 2);
     }
 
     q31 depth;
 protected:
     q16 rate;
-    Operator _op;
-    Operator *_opPtr;
-    Algorithm _alg;
-    Voice _voice;
+private:
+    q28 t;
 };
 template class LFO<q31>;
-template class LFO<q16>;
+//template class LFO<q16>;
 
 #endif /* AUDIOFX_FM_H_ */

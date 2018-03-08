@@ -226,18 +226,14 @@ public:
 	LFO(q16 rate) : rate(rate), depth(0), t(0) {}
     ~LFO() {}
 
-    void getOutput(T *buf){
-    	_lfo_q31(t, buf, rate, depth);
-    	t = (t + FM_INC*AUDIO_BUFSIZE) & ~(_F28_INTEGER_MASK << 2);
-    }
+    void getOutput(T *buf);
 
-    q31 depth;
-protected:
+    T depth;
     q16 rate;
-private:
     q28 t;
 };
+
 template class LFO<q31>;
-//template class LFO<q16>;
+template class LFO<q16>;
 
 #endif /* AUDIOFX_FM_H_ */

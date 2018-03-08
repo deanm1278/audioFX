@@ -36,6 +36,7 @@ extern void _mult_q16(q16 *buf, q16 num);
 extern void _fm_modulate(q28 t, q31 *buf, q16 *cFreq, q31 *mod, q31 *vol);
 extern void _fm_modulate_feedback(q28 t, q31 *buf, q16 *cFreq, q31 *volume_buf, q31 feedbackLevel, q31 *lastFeedback);
 extern void _lfo_q31(q28 t, q31 *buf, q16 rate, q31 depth);
+extern void _lfo_q16(q28 t, q16 *buf, q16 rate, q16 depth);
 };
 
 static inline int32_t q_mod(int32_t a, uint32_t mask){

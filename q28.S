@@ -408,3 +408,106 @@ __lfo_q31:
 	( R7:4, P5:0 ) = [ SP ++ ];
 	R3 = [SP++];
 	RTS;
+
+/*
+ * void _lfo_q16(q28 t, q16 *buf, q16 rate, q16 depth);
+ */
+.align 2
+.global __lfo_q16;
+.type __lfo_q16, STT_FUNC;
+__lfo_q16:
+	[--SP] = R3;
+	R3 = [SP+16]; //depth
+
+	[--SP] = ( R7:4, P5:0 );
+	[--SP] = A0.x;
+	[--SP] = A0.w;
+	[--SP] = A1.x;
+	[--SP] = A1.w;
+	[--SP] = ASTAT;
+
+	P0 = R1; //buf
+	R1 = R2; //rate
+
+	[--SP] = R3; //depth = [SP]
+
+	P4.H = __fm_sine;
+	P4.L = __fm_sine;
+
+	R6 = FM_LOOKUP_MASK;
+
+	R7 = AUDIO_BUFSIZE;
+	LC0 = R7;
+	LOOP lfo16loop LC0;
+	LOOP_BEGIN lfo16loop;
+
+		R7 = R1 << 12;
+		R5 = R1 >> 16;
+		R3 = 0xFFF0;
+		R5 = R5 & R3;
+
+		(R3:R2) = ((A1:0) = R0 * R7) (TFU);
+		(R5:R4) = ((A1:0) = R0 * R5) (TFU);
+
+		R3 <<= 4;
+
+		R2 = R3 + R4; // R2 = pi*freq*t
+		R2 <<= 1; // R2 = 2*pi*freq*t
+
+		R2 = R2 & R6; //mask off anything greater than 2pi
+
+		//pos0 = (q28 * mul) >> 38
+		R3 = FM_LOOKUP_MUL;
+		R4 = R2 * R3; // (this automatically shifts 31)
+		R4 >>= 7;
+
+		R4 <<= 3; //first 4 bytes are the position, next 4 are the derivative
+		R5 = P4;
+		R4 = R4 + R5;
+		P5 = R4;
+		R4 = [P5]; //val = y[pos0]
+
+#if 0
+		//This doesn't seem to be giving any extra resolution
+		R5 = FM_LOOKUP_MOD;
+		R5 = R2 & R5;
+		R3 = [P5 + 4];
+		R5 <<= 12;
+		R5 = R5 * R3;
+		R4 = R4 + R5;
+#endif
+
+		//multiply by depth
+		R2 = [SP];
+
+		(R5:R4) = ((A1:0) = R2 * R4) (TFU);
+		R5 <<= 16;
+		R4 >>= 16;
+		R2 = R7 | R6;
+
+		R3 = [P0];
+
+		(R5:R4) = ((A1:0) = R3 * R2) (TFU);
+		R5 <<= 16;
+		R4 >>= 16;
+		R4 = R7 | R6;
+
+		[P0] = R4;
+		P0 += 4;
+
+		//increment time step
+		R7 = FM_LOOKUP_INC;
+		R0 = R0 + R7;
+
+	LOOP_END lfo16loop;
+
+	SP+=4;
+
+	ASTAT = [SP++];
+	A1.w = [SP++];
+	A1.x = [SP++];
+	A0.w = [SP++];
+	A0.x = [SP++];
+	( R7:4, P5:0 ) = [ SP ++ ];
+	R3 = [SP++];
+	RTS;

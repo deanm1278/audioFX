@@ -154,3 +154,13 @@ void Envelope<T>::getOutput(T *buf, Voice *voice){
 			*ptr++ = *(ptr-1) + inc[i];
 	}
 }
+
+template<> void LFO<q31>::getOutput(q31 *buf) {
+    _lfo_q31(t, buf, rate, depth);
+    t = (t + FM_INC*AUDIO_BUFSIZE) & ~(_F28_INTEGER_MASK << 2);
+}
+
+template<> void LFO<q16>::getOutput(q16 *buf) {
+    _lfo_q16(t, buf, rate, depth);
+    t = (t + FM_INC*AUDIO_BUFSIZE) & ~(_F28_INTEGER_MASK << 2);
+}

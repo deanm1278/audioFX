@@ -131,11 +131,13 @@ public:
 /************* ALGORITHM CLASS **************/
 class Algorithm : public Modulator<q31>{
 public:
-    Algorithm(Operator **operators, uint8_t numOperators) { ops = operators; numOps = numOperators; }
+    Algorithm(Operator **operators, uint8_t numOperators) { setOperators(operators, numOperators); }
     ~Algorithm() {}
 
     /* runs all operators for a given voice, return mixed output */
     void getOutput(q31 *buf, Voice *voice);
+
+    void setOperators(Operator **operators, uint8_t numOperators) { ops = operators; numOps = numOperators; }
 
 private:
     Operator **ops;
@@ -218,5 +220,44 @@ private:
     Algorithm *algorithm;
 };
 
+/************* LFO CLASS **************/
+template<class T> class LFO : public Modulator<T> {
+public:
+	LFO(q16 rate) : rate(rate), _op(), _opPtr(&_op), _alg(&_opPtr, 1), _voice(&_alg) {
+		depth = 0;
+		_op.isOutput= true;
+		_voice.setOutput(rate);
+	}
+    ~LFO() {}
+
+    void trigger(bool state){ _voice.trigger(state); }
+
+    void getOutput(T *buf){
+    	q31 tmpBuffer[AUDIO_BUFSIZE];
+    	memset(tmpBuffer, 0, AUDIO_BUFSIZE*sizeof(q31));
+    	_voice.play(tmpBuffer, depth);
+
+    	q31 *ptr = tmpBuffer;
+    	T *dataPtr = buf;
+    	for(int i=0; i<AUDIO_BUFSIZE; i++){
+		  q31 u, v=*ptr++, w=*dataPtr;
+		  __asm__ volatile("R2 = %1 * %2;" \
+			  "%0 = %1 - R2 (S);"
+			  : "=r"(u) : "r"(w), "r"(v) : "R2");
+
+		  *dataPtr++ = u;
+		}
+    }
+
+    q31 depth;
+protected:
+    q16 rate;
+    Operator _op;
+    Operator *_opPtr;
+    Algorithm _alg;
+    Voice _voice;
+};
+template class LFO<q31>;
+template class LFO<q16>;
 
 #endif /* AUDIOFX_FM_H_ */

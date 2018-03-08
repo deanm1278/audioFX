@@ -269,6 +269,11 @@ __fm_modulate_feedback:
 		R5 = R5 * R3;
 		R4 = R4 + R5;
 #endif
+		//moving average to get rid of oscillations
+		R3 = [P2];
+		R4 >>>= 1;
+		R3 >>>= 1;
+		R4 = R4 + R3;
 
 		//store in feedback param
 		[P2] = R4;

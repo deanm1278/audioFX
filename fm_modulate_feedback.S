@@ -231,7 +231,7 @@ __fm_modulate_feedback:
 		R2 = R3 >>> 1;
 		R4 = R4 + R2;
 
-		R3 = R4 - R3; //feedback delta (current - last)
+		R3 = R4 - R3 (S); //feedback delta (current - last)
 
 		//store in feedback param
 		[P2] = R3;

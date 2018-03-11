@@ -191,6 +191,7 @@ public:
     void trigger(bool state, bool immediateCut = false) {
         if(state){
             active = true;
+            memset(lastPos, 0, sizeof(int)*FM_MAX_OPERATORS);
             ms = 0;
         }
         if(immediateCut){

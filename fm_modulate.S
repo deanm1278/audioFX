@@ -70,6 +70,8 @@ __fm_modulate_output:
 
 	P4.H = __fm_sine;
 	P4.L = __fm_sine;
+	P1 = 4096;
+	P4 = P4 + P1;
 
 	P0 = R1; //buf
 	P1 = R2; //cfreq
@@ -83,7 +85,6 @@ __fm_modulate_output:
 	LOOP_BEGIN fmOutputLoop;
 		R1 = [P1];
 		P1 += 4;
-
 		R7 = R1 << 16; //fraction
 		R5 = R1 >> 16; //integer
 		R4 = FM_LOOKUP_INC;
@@ -92,29 +93,34 @@ __fm_modulate_output:
 
 		R2 = R4 + R3; // R2 = pi*freq*t
 
+		R2 = R2 + R0; //add previous error
+		R3 = FM_LOOKUP_MOD;
+		R0 = R2 & R3;
+
 		R3 = [P2];
 		P2 += 4;
 
-		R2 = R2 + R3;
-		R2 = R2 + R0;
-		R3 = FM_LOOKUP_MOD;
-		R0 = R2 & R3; //add some error bits and save the new error
+		R2 = R2 + R3; //add modulators
 
 		//pos0 = (q31 * mul) >> 42
 		R3 = FM_LOOKUP_MUL;
 		R4 = R2 * R3; // (this automatically shifts 31)
-		R4 >>= 11;
+		R4 >>>= 11;
 
 		//add to plast, plast % 1024
-		R4 = R4 + R6;
-		R3 = 0x3FF;
-		R4 = R4 & R3;
-		R6 = R4; //save plast
+		R1 = 0x80000000; //sign bit
+		R3 = R4 + R6;
+		R4 = R3 & R1; //save sign bit
+		R3 <<= 21;
+		BITCLR(R3, 31); //clear sign bit
+		R3 = R3 | R4; //or in new sign bit
+		R3 >>>= 21;
+		R6 = R3; //save plast
 
-		R4 <<= 2; //each sample is 4 bytes
+		R3 <<= 2; //each sample is 4 bytes
 		R5 = P4;
-		R4 = R4 + R5;
-		P5 = R4;
+		R3 = R3 + R5;
+		P5 = R3;
 		R4 = [P5]; //val = y[pos0]
 
 		//multiply by volume
@@ -168,6 +174,8 @@ __fm_modulate:
 
 	P4.H = __fm_sine;
 	P4.L = __fm_sine;
+	P1 = 4096;
+	P4 = P4 + P1;
 
 	P0 = R1; //buf
 	P1 = R2; //cfreq
@@ -190,13 +198,14 @@ __fm_modulate:
 
 		R2 = R4 + R3; // R2 = pi*freq*t
 
+		R2 = R2 + R0;
+		R3 = FM_LOOKUP_MOD;
+		R0 = R2 & R3; //add some error bits and save the new error
+
 		R3 = [P2];
 		P2 += 4;
 
 		R2 = R2 + R3;
-		R2 = R2 + R0;
-		R3 = FM_LOOKUP_MOD;
-		R0 = R2 & R3; //add some error bits and save the new error
 
 		//pos0 = (q31 * mul) >> 42
 		R3 = FM_LOOKUP_MUL;
@@ -204,9 +213,13 @@ __fm_modulate:
 		R4 >>= 11;
 
 		//add to plast, plast % 1024
-		R4 = R4 + R6;
-		R3 = 0x3FF;
-		R4 = R4 & R3;
+		R1 = 0x80000000; //sign bit
+		R3 = R4 + R6;
+		R4 = R3 & R1; //save sign bit
+		R3 <<= 21;
+		BITCLR(R3, 31); //clear sign bit
+		R4 = R3 | R4; //or in new sign bit
+		R4 >>>= 21;
 
 		//get old plast
 		R3 = R6 << 2; //each is 4 bytes long

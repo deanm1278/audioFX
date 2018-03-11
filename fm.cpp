@@ -164,13 +164,52 @@ void Envelope<T>::getOutput(T *buf, Voice *voice){
 	}
 }
 
-
-template<> void LFO<q31>::getOutput(q31 *buf) {
-    lastPos = _lfo_q31(lastPos, buf, rate, depth);
+template<> void LFO<q31>::getOutput(q31 *buf, int *last) {
+	if(last != NULL)
+		*last = _lfo_q31(*last, buf, rate, depth);
+	else
+		lastPos = _lfo_q31(lastPos, buf, rate, depth);
 }
 
 
-template<> void LFO<q16>::getOutput(q16 *buf) {
-	carrier->getOutput(buf);
-    lastPos = _lfo_q16(lastPos, buf, rate, depth);
+template<> void LFO<q16>::getOutput(q16 *buf, int *last) {
+	if(last != NULL)
+		*last = _lfo_q16(*last, buf, rate, depth);
+	else
+		lastPos = _lfo_q16(lastPos, buf, rate, depth);
+}
+
+void Voice::play(q31 *buf, q31 gain, LFO<q16> *mod) {
+	this->gain = gain;
+	this->hold = false;
+	this->interruptable = true;
+
+	cfreq = (q16 *)malloc(sizeof(q16)*AUDIO_BUFSIZE);
+	for(int i=0; i<AUDIO_BUFSIZE; i++)
+		cfreq[i] = output;
+
+	if(mod != NULL)
+		mod->getOutput(cfreq, &lastLFO); //run it through the modulator
+
+	q31 tmpBuffer[AUDIO_BUFSIZE];
+	memset(tmpBuffer, 0, AUDIO_BUFSIZE*sizeof(q31));
+
+	algorithm->getOutput(tmpBuffer, this);
+
+	for(int i=0; i<AUDIO_BUFSIZE; i++){
+		q31 u, v = tmpBuffer[i], w = buf[i];
+		__asm__ volatile("R2 = %1 * %2;" \
+						"%0 = R2 + %3 (S);"
+						: "=r"(u) : "r"(v), "r"(gain), "r"(w) : "R2");
+		buf[i] = u;
+	}
+	if(!this->hold && this->queueStop){
+		this->active = false;
+		ms = 0;
+		this->queueStop = false;
+	}
+	else
+    	ms += 2;
+
+	free(cfreq);
 }

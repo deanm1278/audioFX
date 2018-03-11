@@ -154,7 +154,7 @@ __lfo_q16:
 		R4 = R4 & R3;
 		R6 = R4; //save plast
 
-		R4 <<= 3; //first 4 bytes are the position, next 4 are the derivative
+		R4 <<= 2; //each is 4 bytes
 		R5 = P4;
 		R4 = R4 + R5;
 		P5 = R4;

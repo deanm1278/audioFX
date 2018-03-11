@@ -16,8 +16,11 @@ q31 *dataPtr;
 static RAMB q31 outputData[AUDIO_BUFSIZE];
 static uint32_t roundRobin = 0;
 
-LFO<q31> lfo( _F16(3.0) );
-#define LFO_DEPTH 0.25
+LFO<q16> lfo( _F16(8.0) );
+#define LFO_DEPTH 0.05
+
+LFO<q31> lfoVol( _F16(2.0) );
+#define LFO_VOL_DEPTH 0.25
 
 void handleNoteOn(byte channel, byte pitch, byte velocity);
 void handleNoteOff(byte channel, byte pitch, byte velocity);
@@ -26,7 +29,7 @@ void audioHook(q31 *data);
 //********** SYNTH SETUP *****************//
 
 #define NUM_OPERATORS 6
-Operator op1, op2, op3, op4, op5, op6;
+Operator op1(0), op2(1), op3(2), op4(3), op5(4), op6(5);
 Operator *ops[NUM_OPERATORS] = {&op1, &op3, &op2, &op4, &op5, &op6};
 Algorithm A(ops, NUM_OPERATORS);
 
@@ -43,7 +46,7 @@ RatioFrequency op6Ratio(&op1, _F16(0.5));
 void setup()
 {
    /******* DEFINE STRUCTURE *******
-   *             /\
+   *
    *           OP1 OP2 OP3 OP4/
    *              \ \  /  /
    *               output
@@ -66,7 +69,7 @@ void setup()
   //******* DEFINE ENVELOPES *******//
 
   //***** OP1 ENVELOPE *****//
-  op1.volume.attack.time = 2;
+  op1.volume.attack.time = 8;
   op1.volume.attack.level = _F(.18);
 
   op1.volume.decay.time = 25;
@@ -77,7 +80,7 @@ void setup()
   op1.volume.release.time = 25;
 
   //***** OP2 ENVELOPE *****//
-  op2.volume.attack.time = 2;
+  op2.volume.attack.time = 8;
   op2.volume.attack.level = _F(.18);
 
   op2.volume.decay.time = 25;
@@ -88,7 +91,7 @@ void setup()
   op2.volume.release.time = 25;
 
   //***** OP3 ENVELOPE *****//
-  op3.volume.attack.time = 2;
+  op3.volume.attack.time = 8;
   op3.volume.attack.level = _F(.18);
 
   op3.volume.decay.time = 25;
@@ -99,7 +102,7 @@ void setup()
   op3.volume.release.time = 25;
 
   //***** OP4 ENVELOPE *****//
-  op4.volume.attack.time = 2;
+  op4.volume.attack.time = 8;
   op4.volume.attack.level = _F(.18);
 
   op4.volume.decay.time = 25;
@@ -110,7 +113,7 @@ void setup()
   op4.volume.release.time = 25;
 
   //***** OP5 ENVELOPE *****//
-  op5.volume.attack.time = 2;
+  op5.volume.attack.time = 8;
   op5.volume.attack.level = _F(.18);
 
   op5.volume.decay.time = 25;
@@ -121,7 +124,7 @@ void setup()
   op5.volume.release.time = 25;
 
   //***** OP6 ENVELOPE *****//
-  op6.volume.attack.time = 2;
+  op6.volume.attack.time = 8;
   op6.volume.attack.level = _F(.18);
 
   op6.volume.decay.time = 25;
@@ -131,7 +134,8 @@ void setup()
 
   op6.volume.release.time = 25;
 
-  lfo.depth = _F(LFO_DEPTH);
+  lfo.depth = _F16(LFO_DEPTH);
+  lfoVol.depth = _F(LFO_VOL_DEPTH);
 
   //***** END OF PATCH SETUP *****//
 
@@ -163,9 +167,9 @@ void loop()
     memset(outputData, 0, AUDIO_BUFSIZE*sizeof(q31));
 
     for(int i=0; i<NUM_VOICES; i++)
-      voices[i]->play(outputData, _F(.99/(NUM_VOICES-4)));
+      voices[i]->play(outputData, _F(.99/(NUM_VOICES-4)), &lfo);
 
-    lfo.getOutput(outputData);
+    lfoVol.getOutput(outputData);
 
     q31 *ptr = outputData;
     for(int i=0; i<AUDIO_BUFSIZE; i++){

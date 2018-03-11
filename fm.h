@@ -145,6 +145,20 @@ private:
     uint8_t numOps;
 };
 
+/************* LFO CLASS **************/
+template<class T> class LFO : public Modulator<T> {
+public:
+	LFO(q16 rate) : rate(rate), depth(0), lastPos(0), carrier(NULL) {}
+    ~LFO() {}
+
+    void getOutput(T *buf, int *last=NULL);
+
+    T depth;
+    q16 rate;
+    int lastPos;
+    Modulator<q16> *carrier;
+};
+
 /************* VOICE CLASS **************/
 
 class Voice : public Modulator<q16>{
@@ -159,39 +173,23 @@ public:
     	queueStop = false;
     	interruptable = true;
     	lastFeedback = 0;
+    	lastLFO = 0;
+    	cfreq = NULL;
     	memset(lastPos, 0, sizeof(int)*FM_MAX_OPERATORS);
     }
     ~Voice() {}
 
     q28 getT() { return t; }
-    void play(q31 *buf, q31 gain) {
-    	this->gain = gain;
-    	this->hold = false;
-    	this->interruptable = true;
-    	q31 tmpBuffer[AUDIO_BUFSIZE];
-    	memset(tmpBuffer, 0, AUDIO_BUFSIZE*sizeof(q31));
+    void getOutput(q16 *buf) {
+    	memcpy(buf, cfreq, sizeof(q16)*AUDIO_BUFSIZE);
+    };
 
-    	algorithm->getOutput(tmpBuffer, this);
-
-    	for(int i=0; i<AUDIO_BUFSIZE; i++){
-    		q31 u, v = tmpBuffer[i], w = buf[i];
-    		__asm__ volatile("R2 = %1 * %2;" \
-    						"%0 = R2 + %3 (S);"
-    						: "=r"(u) : "r"(v), "r"(gain), "r"(w) : "R2");
-    		buf[i] = u;
-    	}
-    	if(!this->hold && this->queueStop){
-    		this->active = false;
-    		ms = 0;
-    		this->queueStop = false;
-    	}
-    	else
-        	ms += 2;
-    }
+    void play(q31 *buf, q31 gain, LFO<q16> *mod=NULL);
     void trigger(bool state, bool immediateCut = false) {
         if(state){
             active = true;
             memset(lastPos, 0, sizeof(int)*FM_MAX_OPERATORS);
+            lastLFO = 0;
             ms = 0;
         }
         if(immediateCut){
@@ -215,27 +213,13 @@ protected:
     //TODO: this currently only allows one feedback operator. Fix if necessary.
     q31 lastFeedback;
     int lastPos[FM_MAX_OPERATORS];
+    //TODO: this currently only allows one lfo. Fix if necessary.
+    int lastLFO;
+    q16 *cfreq;
 
 private:
     q28 t;
     Algorithm *algorithm;
 };
-
-/************* LFO CLASS **************/
-template<class T> class LFO : public Modulator<T> {
-public:
-	LFO(q16 rate) : rate(rate), depth(0), lastPos(0), carrier(NULL) {}
-    ~LFO() {}
-
-    void getOutput(T *buf);
-
-    T depth;
-    q16 rate;
-    int lastPos;
-    Modulator<q16> *carrier;
-};
-
-template class LFO<q31>;
-template class LFO<q16>;
 
 #endif /* AUDIOFX_FM_H_ */

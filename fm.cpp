@@ -7,7 +7,7 @@
 
 #include "fm.h"
 
-Operator::Operator() : volume() {
+Operator::Operator(int id) : volume(), id(id) {
     isOutput = false;
     carrierOverride = false;
     carrier = NULL;
@@ -48,10 +48,19 @@ void Operator::getOutput(q31 *buf, Voice *voice) {
         q16 cfreq[AUDIO_BUFSIZE];
         carrier->getOutput(cfreq);
 
-        if(feedbackLevel == 0)
-        	_fm_modulate(t, buf, cfreq, mod_buf, volume_buf);
-        else
-        	_fm_modulate_feedback(t, buf, cfreq, volume_buf, feedbackLevel, &voice->lastFeedback);
+        if(isOutput){
+            if(feedbackLevel == 0)
+            	voice->lastPos[id] = _fm_modulate_output(voice->lastPos[id], buf, cfreq, mod_buf, volume_buf);
+            else
+            	voice->lastPos[id] = _fm_modulate_feedback_output(voice->lastPos[id], buf, cfreq, volume_buf, feedbackLevel, &voice->lastFeedback);
+        }
+        else{
+            if(feedbackLevel == 0)
+            	voice->lastPos[id] = _fm_modulate(voice->lastPos[id], buf, cfreq, mod_buf, volume_buf);
+            else
+            	voice->lastPos[id] = _fm_modulate_feedback(voice->lastPos[id], buf, cfreq, volume_buf, feedbackLevel, &voice->lastFeedback);
+        }
+
 
         calculated = true;
     }
@@ -155,12 +164,13 @@ void Envelope<T>::getOutput(T *buf, Voice *voice){
 	}
 }
 
+
 template<> void LFO<q31>::getOutput(q31 *buf) {
-    _lfo_q31(t, buf, rate, depth);
-    t = (t + FM_INC*AUDIO_BUFSIZE) & ~(_F28_INTEGER_MASK << 2);
+    lastPos = _lfo_q31(lastPos, buf, rate, depth);
 }
 
+
 template<> void LFO<q16>::getOutput(q16 *buf) {
-    _lfo_q16(t, buf, rate, depth);
-    t = (t + FM_INC*AUDIO_BUFSIZE) & ~(_F28_INTEGER_MASK << 2);
+	carrier->getOutput(buf);
+    lastPos = _lfo_q16(lastPos, buf, rate, depth);
 }

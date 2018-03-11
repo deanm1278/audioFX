@@ -82,7 +82,7 @@ template class Envelope<q16>;
 /************* OPERATOR CLASS **************/
 class Operator : public Modulator<q31> {
 public:
-    Operator();
+    Operator(int id);
     ~Operator() {}
 
     /* runs FM equation. Calculates operators this on depends on if they are not done
@@ -106,6 +106,7 @@ public:
 
 protected:
     bool carrierOverride;
+    int id;
 };
 
 /************* RATIO FREQUENCY CLASS **************/
@@ -158,6 +159,7 @@ public:
     	queueStop = false;
     	interruptable = true;
     	lastFeedback = 0;
+    	memset(lastPos, 0, sizeof(int)*FM_MAX_OPERATORS);
     }
     ~Voice() {}
 
@@ -185,12 +187,9 @@ public:
     	}
     	else
         	ms += 2;
-    	//increment time TODO: this is not great as non-integer frequencies don't line up right
-    	t = (t + FM_INC*AUDIO_BUFSIZE) & ~(_F28_INTEGER_MASK << 2);
     }
     void trigger(bool state, bool immediateCut = false) {
         if(state){
-            t = 0;
             active = true;
             ms = 0;
         }
@@ -214,6 +213,7 @@ public:
 protected:
     //TODO: this currently only allows one feedback operator. Fix if necessary.
     q31 lastFeedback;
+    int lastPos[FM_MAX_OPERATORS];
 
 private:
     q28 t;
@@ -223,14 +223,15 @@ private:
 /************* LFO CLASS **************/
 template<class T> class LFO : public Modulator<T> {
 public:
-	LFO(q16 rate) : rate(rate), depth(0), t(0) {}
+	LFO(q16 rate) : rate(rate), depth(0), lastPos(0), carrier(NULL) {}
     ~LFO() {}
 
     void getOutput(T *buf);
 
     T depth;
     q16 rate;
-    q28 t;
+    int lastPos;
+    Modulator<q16> *carrier;
 };
 
 template class LFO<q31>;

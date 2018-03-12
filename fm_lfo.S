@@ -35,8 +35,8 @@ __lfo_q31:
 
 	[--SP] = R3;
 
-	R6 = R0;
-	R0 = 0;
+	R6 = R0 & 0x3FF;
+    R0 = R0 >> 10;
 
 	R7 = AUDIO_BUFSIZE;
 	LC0 = R7;
@@ -87,7 +87,8 @@ __lfo_q31:
 
 	LOOP_END lfo31loop;
 
-	R0 = R6;
+	R0 <<= 10;
+    R0 = R0 | R6; //return plast and error
 
 	SP+=4;
 
@@ -124,8 +125,8 @@ __lfo_q16:
 
 	[--SP] = R3;
 
-	R6 = R0;
-	R0 = 0;
+	R6 = R0 & 0x3FF;
+    R0 = R0 >> 10;
 
 	R7 = AUDIO_BUFSIZE;
 	LC0 = R7;
@@ -182,7 +183,8 @@ __lfo_q16:
 
 	LOOP_END lfo16loop;
 
-	R0 = R6; //return plast
+	R0 <<= 10;
+    R0 = R0 | R6; //return plast and error
 
 	SP+=4;
 

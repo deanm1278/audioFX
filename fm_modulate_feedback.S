@@ -40,8 +40,8 @@ __fm_modulate_feedback_output:
 	P0 = R1; //buf
 	P1 = R2; //cfreq
 
-	R6 = R0;
-	R0 = 0;
+	R6 = R0 & 0x3FF;
+	R0 = R0 >> 10;
 
 	R7 = AUDIO_BUFSIZE;
 	LC0 = R7;
@@ -120,7 +120,8 @@ __fm_modulate_feedback_output:
 
 	LOOP_END fmFeedbackOutputLoop;
 
-	R0 = R6;
+	R0 <<= 10;
+    R0 = R0 | R6; //return plast and error
 
 	SP+=4;
 
@@ -169,8 +170,8 @@ __fm_modulate_feedback:
 	P0 = R1; //buf
 	P1 = R2; //cfreq
 
-	R6 = R0;
-	R0 = 0;
+	R6 = R0 & 0x3FF;
+    R0 = R0 >> 10;
 
 	R7 = AUDIO_BUFSIZE;
 	LC0 = R7;
@@ -249,7 +250,8 @@ __fm_modulate_feedback:
 
 	LOOP_END fmFeedbackLoop;
 
-	R0 = R6;
+	R0 <<= 10;
+    R0 = R0 | R6; //return plast and error
 
 	SP+=4;
 

@@ -48,7 +48,7 @@ __mult_q16:
 
 /* This is used if the modulator is an output
  *
- * int _fm_modulate_output(int lastPos, q31 *buf, q16 *cFreq, q31 *mod, q31 *vol, int16_t *lastError);
+ * int _fm_modulate_output(int lastPos, q31 *buf, q16 *cFreq, q31 *mod, q31 *vol);
  */
 .align 2
 .global __fm_modulate_output;
@@ -76,8 +76,8 @@ __fm_modulate_output:
 	P0 = R1; //buf
 	P1 = R2; //cfreq
 
-	R6 = R0;
-	R0 = 0;
+	R6 = R0 & 0x3FF;
+	R0 = R0 >> 10;
 
 	R7 = AUDIO_BUFSIZE;
 	LC0 = R7;
@@ -105,16 +105,12 @@ __fm_modulate_output:
 		//pos0 = (q31 * mul) >> 42
 		R3 = FM_LOOKUP_MUL;
 		R4 = R2 * R3; // (this automatically shifts 31)
-		R4 >>>= 11;
+		R4 >>= 11;
 
 		//add to plast, plast % 1024
-		R1 = 0x80000000; //sign bit
-		R3 = R4 + R6;
-		R4 = R3 & R1; //save sign bit
-		R3 <<= 21;
-		BITCLR(R3, 31); //clear sign bit
-		R3 = R3 | R4; //or in new sign bit
-		R3 >>>= 21;
+        R4 = R4 + R6;
+		R3 = 0x3FF;
+		R3 = R4 & R3;
 		R6 = R3; //save plast
 
 		R3 <<= 2; //each sample is 4 bytes
@@ -136,7 +132,8 @@ __fm_modulate_output:
 
 	LOOP_END fmOutputLoop;
 
-	R0 = R6 //return plast
+	R0 <<= 10;
+	R0 = R0 | R6; //return plast and error
 
 	ASTAT = [SP++];
 	A1.w = [SP++];
@@ -180,8 +177,8 @@ __fm_modulate:
 	P0 = R1; //buf
 	P1 = R2; //cfreq
 
-	R6 = R0;
-	R0 = 0;
+	R6 = R0 & 0x3FF;
+	R0 = R0 >> 10;
 
 	R7 = AUDIO_BUFSIZE;
 	LC0 = R7;
@@ -213,13 +210,9 @@ __fm_modulate:
 		R4 >>= 11;
 
 		//add to plast, plast % 1024
-		R1 = 0x80000000; //sign bit
-		R3 = R4 + R6;
-		R4 = R3 & R1; //save sign bit
-		R3 <<= 21;
-		BITCLR(R3, 31); //clear sign bit
-		R4 = R3 | R4; //or in new sign bit
-		R4 >>>= 21;
+        R4 = R4 + R6;
+        R3 = 0x3FF;
+        R3 = R4 & R3;
 
 		//get old plast
 		R3 = R6 << 2; //each is 4 bytes long
@@ -251,7 +244,8 @@ __fm_modulate:
 
 	LOOP_END fmLoop;
 
-	R0 = R6 //return plast
+	R0 <<= 10;
+	R0 = R0 | R6; //return plast and error
 
 	ASTAT = [SP++];
 	A1.w = [SP++];

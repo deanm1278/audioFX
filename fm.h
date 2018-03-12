@@ -172,10 +172,10 @@ public:
     	hold = false;
     	queueStop = false;
     	interruptable = true;
-    	lastFeedback = 0;
     	lastLFO = 0;
     	cfreq = NULL;
     	memset(lastPos, 0, sizeof(int)*FM_MAX_OPERATORS);
+    	memset(lastFeedback, 0, sizeof(q31)*FM_MAX_OPERATORS);
     }
     ~Voice() {}
 
@@ -210,8 +210,7 @@ public:
     friend class Operator;
 
 protected:
-    //TODO: this currently only allows one feedback operator. Fix if necessary.
-    q31 lastFeedback;
+    q31 lastFeedback[FM_MAX_OPERATORS];
     int lastPos[FM_MAX_OPERATORS];
     //TODO: this currently only allows one lfo. Fix if necessary.
     int lastLFO;

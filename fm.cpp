@@ -52,13 +52,13 @@ void Operator::getOutput(q31 *buf, Voice *voice) {
             if(feedbackLevel == 0)
             	voice->lastPos[id] = _fm_modulate_output(voice->lastPos[id], buf, cfreq, mod_buf, volume_buf);
             else
-            	voice->lastPos[id] = _fm_modulate_feedback_output(voice->lastPos[id], buf, cfreq, volume_buf, feedbackLevel, &voice->lastFeedback);
+            	voice->lastPos[id] = _fm_modulate_feedback_output(voice->lastPos[id], buf, cfreq, volume_buf, feedbackLevel, &voice->lastFeedback[id]);
         }
         else{
             if(feedbackLevel == 0)
             	voice->lastPos[id] = _fm_modulate(voice->lastPos[id], buf, cfreq, mod_buf, volume_buf);
             else
-            	voice->lastPos[id] = _fm_modulate_feedback(voice->lastPos[id], buf, cfreq, volume_buf, feedbackLevel, &voice->lastFeedback);
+            	voice->lastPos[id] = _fm_modulate_feedback(voice->lastPos[id], buf, cfreq, volume_buf, feedbackLevel, &voice->lastFeedback[id]);
         }
 
 

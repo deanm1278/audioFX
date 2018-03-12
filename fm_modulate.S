@@ -48,7 +48,7 @@ __mult_q16:
 
 /* This is used if the modulator is an output
  *
- * int _fm_modulate_output(int lastPos, q31 *buf, q16 *cFreq, q31 *mod, q31 *vol);
+ * int _fm_modulate_output(int lastPos, q31 *buf, q16 *cFreq, q31 *mod, q31 *vol, int16_t *lastError);
  */
 .align 2
 .global __fm_modulate_output;
@@ -93,14 +93,14 @@ __fm_modulate_output:
 
 		R2 = R4 + R3; // R2 = pi*freq*t
 
-		R2 = R2 + R0; //add previous error
-		R3 = FM_LOOKUP_MOD;
-		R0 = R2 & R3;
-
 		R3 = [P2];
 		P2 += 4;
 
 		R2 = R2 + R3; //add modulators
+
+		R2 = R2 + R0; //add previous error
+		R3 = FM_LOOKUP_MOD;
+		R0 = R2 & R3;
 
 		//pos0 = (q31 * mul) >> 42
 		R3 = FM_LOOKUP_MUL;
@@ -198,14 +198,14 @@ __fm_modulate:
 
 		R2 = R4 + R3; // R2 = pi*freq*t
 
-		R2 = R2 + R0;
-		R3 = FM_LOOKUP_MOD;
-		R0 = R2 & R3; //add some error bits and save the new error
-
 		R3 = [P2];
 		P2 += 4;
 
 		R2 = R2 + R3;
+
+		R2 = R2 + R0;
+		R3 = FM_LOOKUP_MOD;
+		R0 = R2 & R3; //add some error bits and save the new error
 
 		//pos0 = (q31 * mul) >> 42
 		R3 = FM_LOOKUP_MUL;

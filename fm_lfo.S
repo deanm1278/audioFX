@@ -35,7 +35,8 @@ __lfo_q31:
 
 	[--SP] = R3;
 
-	R6 = R0 & 0x3FF;
+	R4 = 0x3FF;
+	R6 = R0 & R4;
     R0 = R0 >> 10;
 
 	R7 = AUDIO_BUFSIZE;
@@ -45,7 +46,7 @@ __lfo_q31:
 		R7 = R1 << 16; //fraction
 		R5 = R1 >> 16; //integer
 		R4 = FM_LOOKUP_INC;
-		R3 = R4 * R7;
+		R3 = R4 * R7 (FU);
 		(R5:R4) = ((A1:0) = R4 * R5) (TFU);
 
 		R2 = R4 + R3; // R2 = pi*freq*t
@@ -125,7 +126,8 @@ __lfo_q16:
 
 	[--SP] = R3;
 
-	R6 = R0 & 0x3FF;
+	R4 = 0x3FF;
+	R6 = R0 & R4;
     R0 = R0 >> 10;
 
 	R7 = AUDIO_BUFSIZE;
@@ -135,7 +137,7 @@ __lfo_q16:
 		R7 = R1 << 16; //fraction
 		R5 = R1 >> 16; //integer
 		R4 = FM_LOOKUP_INC;
-		R3 = R4 * R7;
+		R3 = R4 * R7 (FU);
 		(R5:R4) = ((A1:0) = R4 * R5) (TFU);
 
 		R2 = R4 + R3; // R2 = pi*freq*t

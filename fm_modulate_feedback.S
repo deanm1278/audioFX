@@ -40,8 +40,9 @@ __fm_modulate_feedback_output:
 	P0 = R1; //buf
 	P1 = R2; //cfreq
 
-	R6 = R0 & 0x3FF;
-	R0 = R0 >> 10;
+	R4 = 0x3FF;
+	R6 = R0 & R4;
+    R0 = R0 >> 10;
 
 	R7 = AUDIO_BUFSIZE;
 	LC0 = R7;
@@ -53,7 +54,7 @@ __fm_modulate_feedback_output:
 		R7 = R1 << 16; //fraction
 		R5 = R1 >> 16; //integer
 		R4 = FM_LOOKUP_INC;
-		R3 = R4 * R7;
+		R3 = R4 * R7 (FU);
 		(R5:R4) = ((A1:0) = R4 * R5) (TFU);
 
 		R2 = R4 + R3; // R2 = freq*t
@@ -89,7 +90,7 @@ __fm_modulate_feedback_output:
 		P5 = R3;
 		R3 = [P5]; //R3 = last value
 
-		R6 = R4; //save new plast
+		R6 = R4;
 
 		R4 <<= 2; //each is 4 bytes long
 		R5 = P4;
@@ -170,7 +171,8 @@ __fm_modulate_feedback:
 	P0 = R1; //buf
 	P1 = R2; //cfreq
 
-	R6 = R0 & 0x3FF;
+	R4 = 0x3FF;
+	R6 = R0 & R4;
     R0 = R0 >> 10;
 
 	R7 = AUDIO_BUFSIZE;
@@ -183,7 +185,7 @@ __fm_modulate_feedback:
 		R7 = R1 << 16; //fraction
 		R5 = R1 >> 16; //integer
 		R4 = FM_LOOKUP_INC;
-		R3 = R4 * R7;
+		R3 = R4 * R7 (FU);
 		(R5:R4) = ((A1:0) = R4 * R5) (TFU);
 
 		R2 = R4 + R3; // R2 = freq*t

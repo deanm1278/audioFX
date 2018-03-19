@@ -61,8 +61,10 @@ __fm_modulate_feedback_output:
 
 		//get feedback parameter
 		R3 = [P2];
+#if 0
 		R4 = 0X28BE60DB; //factor out pi
 		R3 = R3 * R4;
+#endif
 		R5 = [SP];
 		R3 = R3 * R5; //multiply by feedback level
 
@@ -103,7 +105,7 @@ __fm_modulate_feedback_output:
 		R2 = R3 >>> 1;
 		R4 = R4 + R2;
 
-		R3 = R4 - R3; //feedback delta (current - last)
+		R3 = R4 - R3 (S); //feedback delta (current - last)
 
 		//store in feedback param
 		[P2] = R3;
@@ -189,11 +191,11 @@ __fm_modulate_feedback:
 		(R5:R4) = ((A1:0) = R4 * R5) (TFU);
 
 		R2 = R4 + R3; // R2 = freq*t
+		R2 <<= 1;
 
 		//get feedback parameter
 		R3 = [P2];
-		R4 = 0X28BE60DB; //factor out pi
-		R3 = R3 * R4;
+		R3 >>>= 1;
 		R5 = [SP];
 		R3 = R3 * R5; //multiply by feedback level
 

@@ -42,7 +42,9 @@ void Operator::getOutput(q31 *buf, Voice *voice) {
 
         //calculate envelope
         q31 volume_buf[AUDIO_BUFSIZE];
-        volume.getOutput(volume_buf, voice);
+        volume.getOutput(volume_buf, voice, voice->lastVolume[id]);
+        if(voice->active)
+        	voice->lastVolume[id] = volume_buf[AUDIO_BUFSIZE - 1]; //save the last volume for release
 
         q28 t = voice->getT();
         q16 cfreq[AUDIO_BUFSIZE];
@@ -99,7 +101,7 @@ void Envelope<q16>::setDefaults(){
 }
 
 template <class T>
-void Envelope<T>::getOutput(T *buf, Voice *voice){
+void Envelope<T>::getOutput(T *buf, Voice *voice, q31 last){
 
 	//for now calculate the envelope twice per buffer
 	T *ptr = buf;
@@ -117,10 +119,10 @@ void Envelope<T>::getOutput(T *buf, Voice *voice){
 			else{
 				//we are in R
 				if(ms == -1)
-					start[idx] = sustain.level;
+					start[idx] = last;
 				else
-					start[idx] = sustain.level + (release.level - sustain.level)/release.time * ms;
-				inc[idx] = (release.level - sustain.level)/release.time;
+					start[idx] = last + (release.level - last)/release.time * ms;
+				inc[idx] = (release.level - last)/release.time;
 			}
 		}
 		else{
@@ -180,7 +182,8 @@ template<> void LFO<q16>::getOutput(q16 *buf, int *last) {
 }
 
 void Voice::play(q31 *buf, q31 gain, LFO<q16> *mod) {
-	this->gain = gain;
+	if(gain)
+		this->gain = gain;
 	this->hold = false;
 	this->interruptable = true;
 
@@ -194,18 +197,20 @@ void Voice::play(q31 *buf, q31 gain, LFO<q16> *mod) {
 	q31 tmpBuffer[AUDIO_BUFSIZE];
 	memset(tmpBuffer, 0, AUDIO_BUFSIZE*sizeof(q31));
 
+
 	algorithm->getOutput(tmpBuffer, this);
 
 	for(int i=0; i<AUDIO_BUFSIZE; i++){
 		q31 u, v = tmpBuffer[i], w = buf[i];
 		__asm__ volatile("R2 = %1 * %2;" \
 						"%0 = R2 + %3 (S);"
-						: "=r"(u) : "r"(v), "r"(gain), "r"(w) : "R2");
+						: "=r"(u) : "r"(v), "r"(this->gain), "r"(w) : "R2");
 		buf[i] = u;
 	}
+
 	if(!this->hold && this->queueStop){
 		this->active = false;
-		ms = 0;
+		ms = 2;
 		this->queueStop = false;
 	}
 	else

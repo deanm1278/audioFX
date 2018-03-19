@@ -192,6 +192,7 @@ __fm_modulate:
 		(R5:R4) = ((A1:0) = R4 * R5) (TFU);
 
 		R2 = R4 + R3; // R2 = pi*freq*t
+		R2 <<= 1;
 
 		R3 = [P2];
 		P2 += 4;
@@ -227,7 +228,7 @@ __fm_modulate:
 		P5 = R4;
 		R4 = [P5]; //val = y[pos0]
 
-		R4 = R4 - R3; //delta = current - last
+		R4 = R4 - R3 (S); //delta = current - last
 
 		//multiply delta by volume
 		R3 = [P3];

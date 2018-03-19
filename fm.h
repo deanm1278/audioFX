@@ -59,7 +59,7 @@ public:
     Envelope() { setDefaults(); }
     ~Envelope() {}
 
-    void getOutput(T *buf, Voice *voice);
+    void getOutput(T *buf, Voice *voice, q31 last);
 
     void setDefaults();
 
@@ -167,7 +167,7 @@ public:
     	algorithm = algo;
     	t = 0;
     	active = false;
-    	ms = 0;
+    	ms = 1;
     	gain = _F(.999);
     	hold = false;
     	queueStop = false;
@@ -176,6 +176,7 @@ public:
     	cfreq = NULL;
     	memset(lastPos, 0, sizeof(int)*FM_MAX_OPERATORS);
     	memset(lastFeedback, 0, sizeof(q31)*FM_MAX_OPERATORS);
+    	memset(lastVolume, 0, sizeof(q31)*FM_MAX_OPERATORS);
     }
     ~Voice() {}
 
@@ -184,17 +185,18 @@ public:
     	memcpy(buf, cfreq, sizeof(q16)*AUDIO_BUFSIZE);
     };
 
-    void play(q31 *buf, q31 gain, LFO<q16> *mod=NULL);
+    void play(q31 *buf, q31 gain=0, LFO<q16> *mod=NULL);
     void trigger(bool state, bool immediateCut = false) {
         if(state){
             active = true;
-            memset(lastPos, 0, sizeof(int)*FM_MAX_OPERATORS);
+            memset(lastPos, 0, sizeof(q31)*FM_MAX_OPERATORS);
+            //memset(lastFeedback, 0, sizeof(q31)*FM_MAX_OPERATORS);
             lastLFO = 0;
-            ms = 0;
+            ms = 2;
         }
         if(immediateCut){
         	active = state;
-        	ms = 0;
+        	ms = 2;
         }
         else
         	queueStop = !state;
@@ -212,6 +214,7 @@ public:
 protected:
     q31 lastFeedback[FM_MAX_OPERATORS];
     int lastPos[FM_MAX_OPERATORS];
+    q31 lastVolume[FM_MAX_OPERATORS];
     //TODO: this currently only allows one lfo. Fix if necessary.
     int lastLFO;
     q16 *cfreq;

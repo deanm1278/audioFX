@@ -14,7 +14,8 @@ void fir32(filter_coeffs *coeffs, q31 *input, q31 *output, q31 *lastInput)
 {
 	q31* inptr = input;
 	q31 *end = output + AUDIO_BUFSIZE;
-	q31 *cptr, *dptr;
+	const q31 *cptr;
+	q31 *dptr;
 	int ix = 0;
 	int subix;
 	int offset = 0;

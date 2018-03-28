@@ -79,7 +79,7 @@ bool MdmaArbiter::queue(void *dst, void *src, uint32_t dstMod, uint32_t srcMod,
 			dw->DSCPTR_NXT.reg = (uint32_t)(dw + 1);
 		}
 
-		dr->ADDRSTART.reg = (uint32_t)(src + i*4);
+		dr->ADDRSTART.reg = (uint32_t)((uint32_t)src + i*4);
 
 		dr->CFG.bit.EN = DMA_CFG_ENABLE;
 		dr->CFG.bit.WNR = DMA_CFG_WNR_READ_FROM_MEM;
@@ -87,7 +87,7 @@ bool MdmaArbiter::queue(void *dst, void *src, uint32_t dstMod, uint32_t srcMod,
 		dr->XCNT.reg = count;
 		dr->XMOD.reg = srcMod;
 
-		dw->ADDRSTART.reg = (uint32_t)(dst + i*4);
+		dw->ADDRSTART.reg = (uint32_t)((uint32_t)dst + i*4);
 
 		dw->CFG.bit.EN = DMA_CFG_ENABLE;
 		dw->CFG.bit.WNR = DMA_CFG_WNR_WRITE_TO_MEM;

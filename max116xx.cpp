@@ -21,12 +21,10 @@ bool max116xx::begin(void)
 	_setup.bit.CKSEL = 2; //clock mode 10
 	writeReg(_setup.reg);
 
-#if 0
 	//average 8 conversions TODO: tune this
 	_averaging.bit.AVGON = 1;
 	_averaging.bit.NAVG = 1;
 	writeReg(_averaging.reg);
-#endif
 
 	return true;
 }

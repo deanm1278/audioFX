@@ -13,7 +13,6 @@
 #include "Timer.h"
 #include "mdmaArbiter.h"
 #include "audioFX_config.h"
-#include "ak4558.h"
 #include "utility.h"
 
 #define AUDIO_COPY(dst,src) memcpy(dst, src, AUDIO_BUFSIZE * sizeof(int32_t))
@@ -44,9 +43,6 @@ public:
 
 	static uint8_t *tempPoolPtr;
 	static uint8_t tempPool[AUDIO_TEMP_POOL_SIZE];
-
-private:
-	ak4558 iface;
 };
 
 extern AudioFX fx;

@@ -9,16 +9,9 @@
 #include "audioFX.h"
 #include <math.h>
 
-//TODO: fix this once we can get a more accurate MCLK / FS sync
-
 #define FS (AUDIO_SAMPLE_RATE*2) //around 48khz
 #define BCLK (64 * FS)
-#define WLEN 32
-
-#define BCLK_PIN 10
-#define FS_PIN 5
-#define AD0_PIN 9
-#define BD0_PIN 6
+#define WLEN 24
 
 typedef int32_t audioBuf[AUDIO_BUFSIZE << 1];
 
@@ -39,7 +32,7 @@ static DMADescriptor *dWrite[3];
 
 static volatile uint8_t intCount = 0;
 
-AudioFX::AudioFX( void ) : I2S(SPORT0, BCLK_PIN, FS_PIN, AD0_PIN, BD0_PIN), iface()
+AudioFX::AudioFX( void ) : I2S(SPORT0, PIN_BCLK, PIN_FS, PIN_AD0, PIN_BD0)
 {
 	audioHook = NULL;
 
@@ -86,14 +79,6 @@ AudioFX::AudioFX( void ) : I2S(SPORT0, BCLK_PIN, FS_PIN, AD0_PIN, BD0_PIN), ifac
 
 bool AudioFX::begin( void )
 {
-
-    if(!iface.begin()){
-        __asm__ volatile("EMUEXCPT;");
-    }
-
-	//begin the MCLK
-	//_tmr.begin(FS*128);
-
 	//begin i2s
 	I2S::begin(BCLK, FS, WLEN);
 
@@ -104,7 +89,7 @@ bool AudioFX::begin( void )
 	DMA[SPORT0_B_DMA]->CFG.reg = (4UL << 16) | (DMA_CFG_FLOW_DSCL << 12) | (DMA_MSIZE_4_BYTES << 8) | (DMA_CFG_PSIZE_4_BYTES << 4) | (DMA_CFG_WNR_WRITE_TO_MEM << 1)|  DMA_CFG_ENABLE;
 
 	enableIRQ(31);
-	setIRQPriority(31, IRQ_MAX_PRIORITY);
+	setIRQPriority(31, IRQ_MAX_PRIORITY >> 1);
 
 	return true;
 }

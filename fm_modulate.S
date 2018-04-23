@@ -43,6 +43,30 @@ __mult_q16:
 	( R7:2 ) = [ SP ++ ];
 	RTS;
 
+.align 2
+.global __mult_q16_single;
+.type __mult_q16_single, STT_FUNC;
+__mult_q16_single:
+	[--SP] = A0.x;
+	[--SP] = A0.w;
+	[--SP] = A1.x;
+	[--SP] = A1.w;
+	[--SP] = ASTAT;
+
+
+	(R1:R0) = ((A1:0) = R0 * R1) (TFU);
+	R1 <<= 16;
+	R0 >>= 16;
+
+	R0 = R1 | R0;
+
+	ASTAT = [SP++];
+	A1.w = [SP++];
+	A1.x = [SP++];
+	A0.w = [SP++];
+	A0.x = [SP++];
+	RTS;
+
 .extern __fm_sine;
 .type __fm_sine,STT_OBJECT;
 

@@ -187,6 +187,7 @@ public:
 
     void play(q31 *buf, q31 gain=0, LFO<q16> *mod=NULL);
     void trigger(bool state, bool immediateCut = false) {
+    	if(!state && !active) return;
         if(state){
             active = true;
             memset(lastPos, 0, sizeof(q31)*FM_MAX_OPERATORS);

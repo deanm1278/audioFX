@@ -28,6 +28,9 @@ void AudioRingBuf<T>::resize(uint32_t size)
 {
 	end = (T *)(startAddr + (AUDIO_BUFSIZE << 1) * sizeof(T) * size);
 	cap = size;
+	count = min(cap, count);
+	if(head >= end) head = (T *)startAddr;
+	if(tail >= end) tail = (T *)startAddr;
 }
 
 template <class T>

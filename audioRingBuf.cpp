@@ -27,10 +27,14 @@ template <class T>
 void AudioRingBuf<T>::resize(uint32_t size)
 {
 	end = (T *)(startAddr + (AUDIO_BUFSIZE << 1) * sizeof(T) * size);
+
 	cap = size;
 	count = min(cap, count);
-	if(head >= end) head = (T *)startAddr;
-	if(tail >= end) tail = (T *)startAddr;
+	if(head >= end || tail >= end){
+	    head = (T *)startAddr;
+	    tail = (T *)startAddr;
+	    count = 0;
+	}
 }
 
 template <class T>
@@ -231,7 +235,7 @@ void AudioRingBuf<T>::peekBack(T *left, T *right, uint32_t offset, void (*fn)(vo
 }
 
 template <class T>
-void AudioRingBuf<T>::peekBack(T *left, T *right, uint32_t offset, uint32_t size, void (*fn)(void)){
+void AudioRingBuf<T>::peekBack(T *left, T *right, uint32_t offset, uint32_t size){
 	T *ptr, *lastBlock;
 	uint32_t distFromStart;
 
@@ -250,26 +254,11 @@ void AudioRingBuf<T>::peekBack(T *left, T *right, uint32_t offset, uint32_t size
 	}
 	else ptr = lastBlock - offset;
 
-//TODO: fix this
-#if 0
-	T *end_addr = (ptr + (size << 1) );
-	if( end_addr > end ){
-#endif
-		//hard to synchronize, for now lets take the CPU hit
-		//uint32_t diff = (end_addr - end) >> 1;
-
-		while(size > 0){
-			if(ptr == end) ptr = (T *)startAddr;
-			*left++ = *ptr++;
-			*right++ = *ptr++;
-			size--;
-		}
-		if(fn != NULL) fn();
-#if 0
-	}
-	else{
-		fx._arb.queue(left, ptr, sizeof(T), (sizeof(T) << 1), size, sizeof(T));
-		fx._arb.queue(right, ptr + 1, sizeof(T), (sizeof(T) << 1), size, sizeof(T), fn);
-	}
-#endif
+	//TODO: optimize this w/ circular addressing if sizeof(T) <= 4 bytes
+    while(size > 0){
+        if(ptr == end) ptr = (T *)startAddr;
+        *left++ = *ptr++;
+        *right++ = *ptr++;
+        size--;
+    }
 }

@@ -33,7 +33,7 @@ public:
 
 	T *peekBack(uint32_t offset);
 	void peekBack(T *left, T *right, uint32_t offset, void (*fn)(void));
-	void peekBack(T *left, T *right, uint32_t offset, uint32_t size, void (*fn)(void));
+	void peekBack(T *left, T *right, uint32_t offset, uint32_t size);
 
 	void clear( T *ptr );
 
@@ -52,6 +52,7 @@ public:
 
 	bool full( void ) { return count == cap; }
 	bool empty( void ) { return count == 0; }
+	uint32_t getSize( void ) { return cap; }
 	uint32_t getCount( void ) { return count; }
 	void setCount(uint32_t c) { count  = c; }
 	T *getFront( void ){ return tail; }

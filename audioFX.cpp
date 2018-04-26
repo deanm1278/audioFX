@@ -123,7 +123,7 @@ AudioFX fx;
 
 extern "C" {
 
-int SPORT0_B_DMA_Handler (int IQR_NUMBER )
+__attribute__ ((saveall)) int SPORT0_B_DMA_Handler (int IQR_NUMBER )
 {
 	DMA[SPORT0_B_DMA]->STAT.bit.IRQDONE = 1;
 

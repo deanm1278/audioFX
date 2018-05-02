@@ -21,6 +21,7 @@ struct delayLine{
 extern "C" {
 extern void _delay_push(struct delayLine *line, q31 *buf, uint32_t num);
 extern void _delay_modulate(struct delayTap *tap, q31 *buf, uint32_t num);
+extern void _delay_pitch_shift_down(struct delayTap *tap, q31 *buf, uint32_t num);
 };
 
 #endif

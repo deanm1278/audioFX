@@ -169,12 +169,12 @@ delay_loop_continue:
 	UNLINK
 	RTS;
 
-/*
- * void _delay_pitch_shift(struct delayTap *tap, q31 *buf, uint32_t num);
- */
-
 .extern _pitch_shift_table;
 .type _pitch_shift_table,STT_OBJECT;
+
+/*
+ * void _delay_pitch_shift_down(struct delayTap *tap, q31 *buf, uint32_t num);
+ */
 
 .align 2
 .global __delay_pitch_shift_down;
@@ -240,6 +240,91 @@ pitch_shift_down_cont:
         P5 += 4;
 
     LOOP_END delayPitchShiftDownLoop;
+
+    SP+=4;
+
+    //save back variables
+    P3 += 4;
+    R1 = I0;
+    [P3] = R1; //tap->dptr
+    P3 += 4;
+    R6 = R4 >> 16;
+    [P3] = R6; //tap->currentOffset
+    P3 += 16;
+    [P3] = R4; //tap->err
+
+    ( R7:3, P5:2 ) = [ SP ++ ];
+    UNLINK
+    RTS;
+
+/*
+ * void _delay_pitch_shift_up(struct delayTap *tap, q31 *buf, uint32_t num);
+ */
+
+.align 2
+.global __delay_pitch_shift_up;
+.type __delay_pitch_shift_up, STT_FUNC;
+__delay_pitch_shift_up:
+    LINK 0
+    [--SP] = ( R7:3, P5:2 );
+
+    CALL __delay_setup;
+
+    LC0 = R2; //num
+    LOOP delayPitchShiftUpLoop LC0;
+    LOOP_BEGIN delayPitchShiftUpLoop;
+        R2 = R5;
+
+        //add to error
+        R4 = R4 - R2; //direction is negative
+        R0 = 0x07FFFFFF; //q16 rep of 2047.9999
+
+        CC = BITTST(R4, 31);
+        IF !CC JUMP pitch_shift_up_cont;
+        //otherwise we have rolled over
+        R1 = 2048;
+        R6 = R1 + R6;
+        R4 = R0 + R4;
+
+pitch_shift_up_cont:
+        R2 = R4 >>> 16; //integer portion
+        R0 = R2 - R6; //current integer portion - last integer portion
+
+        R6 = R2;
+        R0 <<= 2; //4 bytes per q31
+        R0 = -R0; //negate since we're moving away from buffer head
+        M0 = R0;
+
+        I0 += M0;
+        R1 = [I0]; //*dptr
+
+        //get previous sample
+        M0 = -4;
+        I0 += M0;
+        M0 = 8; //move back to where it was
+        R0 = [I0++M0]; //*nptr
+
+        //interpolate the delay line
+        R2 = R0 - R1;
+        R0 = R4 << 15; //convert err to q31
+        BITCLR (R0, 31); //clear sign bit
+        R0 = R0 * R2;
+        R0 = R1 + R0;
+
+        //TODO: interpolate the pitch shift table as well
+        P2.H = _pitch_shift_table;
+        P2.L = _pitch_shift_table;
+        R7 = R6 << 2;
+        R1 = P2;
+        R7 = R1 + R7;
+        P2 = R7;
+        R7 = [P2];
+        R0 = R0 * R7; //multiply by the correct volume
+
+        [P5] = R0; //save and increment output pointers
+        P5 += 4;
+
+    LOOP_END delayPitchShiftUpLoop;
 
     SP+=4;
 

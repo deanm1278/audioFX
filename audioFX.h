@@ -25,6 +25,13 @@
 #define DEINTERLEAVE(x, left, right) { q31 *lPtr = left; q31 *rPtr = right; q31 *dPtr = x; for(int __dintcount=0; __dintcount<AUDIO_BUFSIZE; __dintcount++){ *lPtr++ = *dPtr++; *rPtr++ = *dPtr++; } }
 #define INTERLEAVE(x, left, right) { q31 *lPtr = left; q31 *rPtr = right; q31 *dPtr = x; for(int __intcount=0; __intcount<AUDIO_BUFSIZE; __intcount++){ *dPtr++ = *lPtr++; *dPtr++ = *rPtr++; } }
 
+static inline q31 mix(q31 val, q31 coeff)
+{
+    q31 ret;
+    __asm__ volatile("%0 = %1 * %2;" : "=r"(ret) : "r"(val), "r"(coeff));
+    return ret;
+}
+
 class AudioFX : public I2S
 {
 public:

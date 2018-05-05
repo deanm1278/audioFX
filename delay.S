@@ -83,6 +83,41 @@ __delay_setup:
     RTS;
 
 /*
+ * void __delay_pop(struct delayTap *tap, q31 *buf, uint32_t num);
+ */
+
+.align 2
+.global __delay_pop;
+.type __delay_pop, STT_FUNC;
+__delay_pop:
+    LINK 0
+	[--SP] = ( R7:3, P5:3 );
+
+    CALL __delay_setup;
+
+    M0 = 4; //modifier = sizeof(q31)
+
+	LC0 = R2; //num
+	LOOP delayPopLoop LC0;
+	LOOP_BEGIN delayPopLoop;
+		R6 = [I0++M0];
+		[P5] = R6;
+		P5+=4;
+	LOOP_END delayPopLoop;
+
+	SP+=4;
+
+	//save back variables
+    P3 += 4;
+    R1 = I0;
+    [P3] = R1; //tap->dptr
+
+	( R7:3, P5:3 ) = [ SP ++ ];
+	UNLINK;
+	RTS;
+
+
+/*
  * void _delay_modulate(struct delayTap *tap, q31 *buf, uint32_t num);
  */
 

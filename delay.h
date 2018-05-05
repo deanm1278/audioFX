@@ -3,6 +3,8 @@
 
 #define PITCH_SHIFT_SIZE 2048
 
+using namespace FX;
+
 struct delayTap {
 	struct delayLine *parent; //pointer to the parent delay line
 	q31 *dptr; //location of the current tap
@@ -11,6 +13,7 @@ struct delayTap {
 	uint32_t top; //the max value currentOffset can take
 	q31 direction; // +1 or -1
 	q16 err;
+	q31 coeff;
 };
 
 struct delayLine{
@@ -26,6 +29,11 @@ struct pitchShift{
     struct delayTap *t2;
 };
 
+struct allpass {
+	struct delayLine *line;
+	struct delayTap *tap;
+};
+
 extern "C" {
 
 extern void _delay_push(struct delayLine *line, q31 *buf, uint32_t num);
@@ -36,7 +44,17 @@ extern void _delay_pitch_shift_up(struct delayTap *tap, q31 *buf, uint32_t num);
 
 };
 
-static inline struct delayTap *initDelayTap(struct delyLine *line, int offset)
+static inline struct delayLine *initDelayLine(q31 *buf, uint32_t size)
+{
+	struct delayLine *line = (struct delayLine *)malloc (sizeof(struct delayLine));
+	line->data = buf;
+	line->head = buf;
+	line->size = size;
+
+	return line;
+}
+
+static inline struct delayTap *initDelayTap(struct delayLine *line, int offset)
 {
     struct delayTap *tap = (struct delayTap *)malloc (sizeof(struct delayTap));
     tap->parent = line;
@@ -47,16 +65,12 @@ static inline struct delayTap *initDelayTap(struct delyLine *line, int offset)
     return tap;
 }
 
-static inline void delayRead(struct delayTap *tap, q31 *buf)
-{
-
-}
-
-static inline struct pitchShift *initPitchShift(struct delayLine *line)
+static inline struct pitchShift *initPitchShift(q31 *buf)
 {
     struct delayTap *tap1 = (struct delayTap *)malloc (sizeof(struct delayTap));
     struct delayTap *tap2 = (struct delayTap *)malloc (sizeof(struct delayTap));
     struct pitchShift *shift = (struct pitchShift *)malloc (sizeof(struct pitchShift));
+    struct delayLine *line = initDelayLine(buf, PITCH_SHIFT_SIZE);
 
     tap1->parent = line;
     tap1->dptr = line->data;
@@ -73,6 +87,41 @@ static inline struct pitchShift *initPitchShift(struct delayLine *line)
     shift->t2 = tap2;
 
     return shift;
+}
+
+static inline struct allpass *initAllpass(q31 *buf, uint32_t size)
+{
+	struct allpass *p = (struct allpass *)malloc (sizeof(struct allpass));
+	struct delayLine *line = initDelayLine(buf, size);
+	p->line = line;
+	p->tap = initDelayTap(line, line->size - AUDIO_BUFSIZE);
+
+	return p;
+}
+
+static inline void allpassProcess(struct allpass *ap, q31 *bufIn, q31 *bufOut)
+{
+	q31 in[AUDIO_BUFSIZE];
+	for(int i=0; i<AUDIO_BUFSIZE; i++) in[i] = *bufIn++;
+	_delay_pop(ap->tap, bufOut, AUDIO_BUFSIZE);
+	mix(in, bufOut, _F(-.5));
+	mix(bufOut, in, _F(.5));
+	_delay_push(ap->line, in, AUDIO_BUFSIZE);
+}
+
+static inline void delayPush(struct delayLine *line, q31 *buf){
+	_delay_push(line, buf, AUDIO_BUFSIZE);
+}
+
+static inline void delayPop(struct delayTap *tap, q31 *buf){
+	_delay_pop(tap, buf, AUDIO_BUFSIZE);
+}
+
+static inline void delaySum(struct delayTap *tap, q31 *buf)
+{
+	q31 tmp[AUDIO_BUFSIZE];
+	_delay_pop(tap, tmp, AUDIO_BUFSIZE);
+	mix(buf, tmp, tap->coeff);
 }
 
 static inline void shiftUp(struct pitchShift *ps, q31 *buf, q31 amount){

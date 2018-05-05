@@ -13,6 +13,8 @@
 #define BCLK (64 * FS)
 #define WLEN 24
 
+using namespace FX;
+
 typedef int32_t audioBuf[AUDIO_BUFSIZE << 1];
 
 static audioBuf buffers[3];

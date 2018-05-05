@@ -9,7 +9,7 @@
 #include "audioRingBuf.h"
 #include "variant.h"
 
-static uint32_t zero[4] = {0, 0, 0, 0};
+using namespace FX;
 
 template <class T>
 AudioRingBuf<T>::AudioRingBuf(T *buf, uint32_t size, uint32_t addrOffset)
@@ -136,8 +136,7 @@ void AudioRingBuf<T>::peek(T *leftBlock, T *rightBlock, uint32_t offset)
 template <class T>
 void AudioRingBuf<T>::clear( T *ptr )
 {
-	//memset(ptr, 0, sizeof(T) * (AUDIO_BUFSIZE << 1));
-	fx._arb.queue(ptr, zero, sizeof(T), 0, AUDIO_BUFSIZE << 1, sizeof(T));
+	memset(ptr, 0, sizeof(T) * (AUDIO_BUFSIZE << 1));
 }
 
 template <class T>

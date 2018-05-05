@@ -22,14 +22,70 @@
 #define AUDIO_SEC_TO_SAMPLES(x) ((uint32_t)(x * AUDIO_SAMPLE_RATE))
 #define AUDIO_SEC_TO_BLOCKS(x) ((uint32_t)((x * AUDIO_SAMPLE_RATE)/AUDIO_BUFSIZE))
 
-#define DEINTERLEAVE(x, left, right) { q31 *lPtr = left; q31 *rPtr = right; q31 *dPtr = x; for(int __dintcount=0; __dintcount<AUDIO_BUFSIZE; __dintcount++){ *lPtr++ = *dPtr++; *rPtr++ = *dPtr++; } }
-#define INTERLEAVE(x, left, right) { q31 *lPtr = left; q31 *rPtr = right; q31 *dPtr = x; for(int __intcount=0; __intcount<AUDIO_BUFSIZE; __intcount++){ *dPtr++ = *lPtr++; *dPtr++ = *rPtr++; } }
+namespace FX {
 
-static inline q31 mix(q31 val, q31 coeff)
+static inline void interleave(q31 *x, q31 *left, q31 *right) {
+	q31 *lPtr = left; q31 *rPtr = right; q31 *dPtr = x;
+	for(int __intcount=0; __intcount<AUDIO_BUFSIZE; __intcount++){
+		*dPtr++ = *lPtr++; *dPtr++ = *rPtr++; }
+}
+
+static inline void deinterleave(q31 *x, q31 *left, q31 *right) {
+	q31 *lPtr = left; q31 *rPtr = right; q31 *dPtr = x;
+	for(int __dintcount=0; __dintcount<AUDIO_BUFSIZE; __dintcount++){
+		*lPtr++ = *dPtr++; *rPtr++ = *dPtr++; }
+}
+
+static inline void split(q31 *src, q31 *l, q31 *r, q31 lmix, q31 rmix){
+	for(int i=0; i<AUDIO_BUFSIZE; i++){
+		q31 vi = *src++;
+		q31 lo, ro;
+		__asm__ volatile("%0 = %1 * %2;" : "=r"(lo) : "r"(vi), "r"(lmix));
+		__asm__ volatile("%0 = %1 * %2;" : "=r"(ro) : "r"(vi), "r"(rmix));
+		*l++ = lo;
+		*r++ = ro;
+	}
+}
+
+static inline void splitSum(q31 *src, q31 *l, q31 *r, q31 lmix, q31 rmix){
+	for(int i=0; i<AUDIO_BUFSIZE; i++){
+		q31 vi = *src++;
+		q31 lo, ro;
+		__asm__ volatile("%0 = %1 * %2;" : "=r"(lo) : "r"(vi), "r"(lmix));
+		__asm__ volatile("%0 = %1 * %2;" : "=r"(ro) : "r"(vi), "r"(rmix));
+		*l++ = *l + lo;
+		*r++ = *r + ro;
+	}
+}
+
+static inline void gain(q31 *dst, q31 *src, q31 g){
+	for(int i=0; i<AUDIO_BUFSIZE; i++){
+		q31 vi = *src++;
+		q31 ret;
+		__asm__ volatile("%0 = %1 * %2;" : "=r"(ret) : "r"(vi), "r"(g));
+		*dst++ = ret;
+	}
+}
+
+static inline void zero(q31 *dst){
+	memset(dst, 0, sizeof(q31)*AUDIO_BUFSIZE);
+}
+
+static inline void mix(q31 *dst, q31 *src, q31 coeff)
 {
-    q31 ret;
-    __asm__ volatile("%0 = %1 * %2;" : "=r"(ret) : "r"(val), "r"(coeff));
-    return ret;
+	for(int i=0; i<AUDIO_BUFSIZE; i++){
+		q31 vi = *src++;
+		q31 ret;
+		__asm__ volatile("%0 = %1 * %2;" : "=r"(ret) : "r"(vi), "r"(coeff));
+		*dst++ = *dst + ret;
+	}
+}
+
+static inline void sum(q31 *dst, q31 *src)
+{
+	for(int i=0; i<AUDIO_BUFSIZE; i++){
+		*dst++ = *dst + *src++;
+	}
 }
 
 class AudioFX : public I2S
@@ -52,6 +108,10 @@ public:
 	static uint8_t tempPool[AUDIO_TEMP_POOL_SIZE];
 };
 
-extern AudioFX fx;
+
+};
+
+
+extern FX::AudioFX fx;
 
 #endif /* LIB_AUDIOFX_H_ */

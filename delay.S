@@ -83,6 +83,83 @@ __delay_setup:
     RTS;
 
 /*
+ * void _fir(struct fir *f, q31 *buf, uint32_t num);
+ */
+
+.align 2
+.global __fir;
+.type __fir, STT_FUNC;
+__fir:
+	[--SP] = ( R7:3, P5:2 );
+
+    P5 = R1; //data will be output here
+
+	P4 = R0;
+	P3 = R0;
+	R5 = [P4]; //R5 = fir->line
+
+	//load up circular address
+	P4 = R5;
+	P4 += 4;
+	R7 = [P4]; //line.data
+	P4 += 4;
+	R6 = [P4]; //line.size
+
+	B0 = R7; //base = line.data
+	B1 = R7;
+
+	R6 <<= 2;
+    L0 = R6; //length = line.size << 2
+    L1 = R6;
+
+	P4 = R0;
+    P4 += 4;
+    R7 = [P4];
+    I0 = R7; //I0 = fir->dptr;
+
+    P4 += 4;
+    R4 = [P4]; //R4 = fir->coeffs
+
+    P4 += 4;
+    R7 = [P4]; //R7 = fir->num;
+
+    M0 = 4; //modifier = sizeof(q31)
+    M1 = -4; //modifier1 = -sizeof(q31)
+
+    LC0 = R2; //num
+	LOOP firLoop LC0;
+	LOOP_BEGIN firLoop;
+		R6 = I0;
+		I1 = R6; //I1 = dptr
+
+		R6 = 0 (X);
+		P2 = R4;
+
+		LC1 = R7; //fir->num
+		LOOP firInnerLoop LC1;
+		LOOP_BEGIN firInnerLoop;
+			R5 = [I1++M1];
+			R3 = [P2];
+			P2 += 4;
+			R2 = R5 * R3;
+			R6 = R6 + R2;
+
+		LOOP_END firInnerLoop;
+
+		I0 += M0;
+		[P5] = R6;
+		P5+=4;
+	LOOP_END firLoop;
+
+	//save back variables
+    P3 += 4;
+    R1 = I0;
+    [P3] = R1; //tap->dptr
+
+	( R7:3, P5:2 ) = [ SP ++ ];
+	RTS;
+
+/*
  * void __delay_pop(struct delayTap *tap, q31 *buf, uint32_t num);
  */
 

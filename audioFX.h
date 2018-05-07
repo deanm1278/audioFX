@@ -25,23 +25,21 @@
 namespace FX {
 
 static inline void interleave(q31 *x, q31 *left, q31 *right) {
-	q31 *lPtr = left; q31 *rPtr = right; q31 *dPtr = x;
 	for(int __intcount=0; __intcount<AUDIO_BUFSIZE; __intcount++){
-		*dPtr++ = *lPtr++; *dPtr++ = *rPtr++; }
+		*x++ = *left++; *x++ = *right++; }
 }
 
 static inline void deinterleave(q31 *x, q31 *left, q31 *right) {
-	q31 *lPtr = left; q31 *rPtr = right; q31 *dPtr = x;
 	for(int __dintcount=0; __dintcount<AUDIO_BUFSIZE; __dintcount++){
-		*lPtr++ = *dPtr++; *rPtr++ = *dPtr++; }
+		*left++ = *x++; *right++ = *x++; }
 }
 
 static inline void split(q31 *src, q31 *l, q31 *r, q31 lmix, q31 rmix){
 	for(int i=0; i<AUDIO_BUFSIZE; i++){
 		q31 vi = *src++;
 		q31 lo, ro;
-		__asm__ volatile("%0 = %1 * %2;" : "=r"(lo) : "r"(vi), "r"(lmix));
-		__asm__ volatile("%0 = %1 * %2;" : "=r"(ro) : "r"(vi), "r"(rmix));
+		__asm__ volatile("%0 = %1 * %2;" : "=d"(lo) : "d"(vi), "d"(lmix));
+		__asm__ volatile("%0 = %1 * %2;" : "=d"(ro) : "d"(vi), "d"(rmix));
 		*l++ = lo;
 		*r++ = ro;
 	}
@@ -51,8 +49,8 @@ static inline void splitSum(q31 *src, q31 *l, q31 *r, q31 lmix, q31 rmix){
 	for(int i=0; i<AUDIO_BUFSIZE; i++){
 		q31 vi = *src++;
 		q31 lo, ro;
-		__asm__ volatile("%0 = %1 * %2;" : "=r"(lo) : "r"(vi), "r"(lmix));
-		__asm__ volatile("%0 = %1 * %2;" : "=r"(ro) : "r"(vi), "r"(rmix));
+		__asm__ volatile("%0 = %1 * %2;" : "=d"(lo) : "d"(vi), "d"(lmix));
+		__asm__ volatile("%0 = %1 * %2;" : "=d"(ro) : "d"(vi), "d"(rmix));
 		*l++ = *l + lo;
 		*r++ = *r + ro;
 	}
@@ -62,13 +60,13 @@ static inline void gain(q31 *dst, q31 *src, q31 g){
 	for(int i=0; i<AUDIO_BUFSIZE; i++){
 		q31 vi = *src++;
 		q31 ret;
-		__asm__ volatile("%0 = %1 * %2;" : "=r"(ret) : "r"(vi), "r"(g));
+		__asm__ volatile("%0 = %1 * %2;" : "=d"(ret) : "d"(vi), "d"(g));
 		*dst++ = ret;
 	}
 }
 
 static inline void zero(q31 *dst){
-	memset(dst, 0, sizeof(q31)*AUDIO_BUFSIZE);
+	for(int i=0; i<AUDIO_BUFSIZE; i++) *dst++ = 0;
 }
 
 static inline void mix(q31 *dst, q31 *src, q31 coeff)
@@ -76,7 +74,7 @@ static inline void mix(q31 *dst, q31 *src, q31 coeff)
 	for(int i=0; i<AUDIO_BUFSIZE; i++){
 		q31 vi = *src++;
 		q31 ret;
-		__asm__ volatile("%0 = %1 * %2;" : "=r"(ret) : "r"(vi), "r"(coeff));
+		__asm__ volatile("%0 = %1 * %2;" : "=d"(ret) : "d"(vi), "d"(coeff));
 		*dst++ = *dst + ret;
 	}
 }
@@ -85,6 +83,13 @@ static inline void sum(q31 *dst, q31 *src)
 {
 	for(int i=0; i<AUDIO_BUFSIZE; i++){
 		*dst++ = *dst + *src++;
+	}
+}
+
+static inline void copy(q31 *dst, q31 *src)
+{
+	for(int i=0; i<AUDIO_BUFSIZE; i++){
+		*dst++ = *src++;
 	}
 }
 

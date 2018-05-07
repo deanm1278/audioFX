@@ -34,6 +34,13 @@ struct allpass {
 	struct delayTap *tap;
 };
 
+struct fir {
+	struct delayLine *line;
+	q31 *dptr;
+	q31 *coeffs;
+	uint32_t num;
+};
+
 extern "C" {
 
 extern void _delay_push(struct delayLine *line, q31 *buf, uint32_t num);
@@ -41,6 +48,7 @@ extern void _delay_pop(struct delayTap *tap, q31 *buf, uint32_t num);
 extern void _delay_modulate(struct delayTap *tap, q31 *buf, uint32_t num);
 extern void _delay_pitch_shift_down(struct delayTap *tap, q31 *buf, uint32_t num);
 extern void _delay_pitch_shift_up(struct delayTap *tap, q31 *buf, uint32_t num);
+extern void _fir(struct fir *f, q31 *buf, uint32_t num);
 
 };
 
@@ -63,6 +71,15 @@ static inline struct delayTap *initDelayTap(struct delayLine *line, int offset)
     tap->err = offset << 16;
 
     return tap;
+}
+
+static inline struct delayTap *initDelayTap(struct delayLine *line, q16 roc, uint32_t top){
+	struct delayTap *tap = initDelayTap(line, 0);
+	tap->roc = roc;
+	tap->top = top;
+	tap->direction = 0x7FFFFFFF;
+
+	return tap;
 }
 
 static inline struct pitchShift *initPitchShift(q31 *buf)
@@ -94,9 +111,32 @@ static inline struct allpass *initAllpass(q31 *buf, uint32_t size)
 	struct allpass *p = (struct allpass *)malloc (sizeof(struct allpass));
 	struct delayLine *line = initDelayLine(buf, size);
 	p->line = line;
-	p->tap = initDelayTap(line, line->size - AUDIO_BUFSIZE);
+	p->tap = initDelayTap(line, AUDIO_BUFSIZE);
 
 	return p;
+}
+
+static inline struct fir *initFIR(q31 *buf, uint32_t size, q31 *coeffs, uint32_t n)
+{
+	struct fir *f = (struct fir *)malloc (sizeof(struct fir));
+	struct delayLine *line = initDelayLine(buf, size);
+	f->line = line;
+	f->coeffs = coeffs;
+	f->num = n;
+	f->dptr = buf;
+
+	return f;
+}
+
+/* clock cycles ~= AUDIO_BUFSIZE * num_taps * 5.5
+ * [FIR (16 taps)] : 13580
+ * [FIR (32 taps)] : 23820
+ * [FIR (64 taps)] : 44300
+ */
+static inline void FIRProcess(struct fir *f, q31 *bufIn, q31 *bufOut)
+{
+	_delay_push(f->line, bufIn, AUDIO_BUFSIZE);
+	_fir(f, bufOut, AUDIO_BUFSIZE);
 }
 
 static inline void allpassProcess(struct allpass *ap, q31 *bufIn, q31 *bufOut)
@@ -115,6 +155,10 @@ static inline void delayPush(struct delayLine *line, q31 *buf){
 
 static inline void delayPop(struct delayTap *tap, q31 *buf){
 	_delay_pop(tap, buf, AUDIO_BUFSIZE);
+}
+
+static inline void delayModulate(struct delayTap *tap, q31 *buf){
+	_delay_modulate(tap, buf, AUDIO_BUFSIZE);
 }
 
 static inline void delaySum(struct delayTap *tap, q31 *buf)

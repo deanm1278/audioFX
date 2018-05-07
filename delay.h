@@ -128,10 +128,8 @@ static inline struct fir *initFIR(q31 *buf, uint32_t size, q31 *coeffs, uint32_t
 	return f;
 }
 
-/* clock cycles ~= AUDIO_BUFSIZE * num_taps * 5.5
- * [FIR (16 taps)] : 13580
- * [FIR (32 taps)] : 23820
- * [FIR (64 taps)] : 44300
+/* clock cycles ~= AUDIO_BUFSIZE * num_taps * 5.1
+ * [FIR (21 taps)] : 14092
  */
 static inline void FIRProcess(struct fir *f, q31 *bufIn, q31 *bufOut)
 {

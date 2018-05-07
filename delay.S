@@ -21,7 +21,9 @@ __delay_push:
 	R7 = [P4]; //line.data
 	P4 += 4;
 	R6 = [P4]; //line.size
-	P5 = R1; //buf
+	I1 = R1; //buf
+	B1 = R1;
+	L1 = 0;
 
 	B0 = R7; //base = line.data
 
@@ -29,13 +31,13 @@ __delay_push:
 	L0 = R6; //length = line.size << 2
 
 	M0 = 4; //modifier = sizeof(q31)
+	M1 = 4;
 
 	LC0 = R2; //size
 	LOOP delayPushLoop LC0;
 	LOOP_BEGIN delayPushLoop;
-		R6 = [P5];
+		R6 = [I1++M1];
 		[I0++] = R6;
-		P5+=4;
 	LOOP_END delayPushLoop;
 
 	//store back the current head value
@@ -47,7 +49,10 @@ __delay_push:
 	RTS;
 
 __delay_setup:
-    P5 = R1; //data will be output here
+    I1 = R1; //data will be output here
+    B1 = R1;
+    L1 = 0;
+    M1 = 4;
 
     P4 = R0;
     P3 = R0;
@@ -92,7 +97,10 @@ __delay_setup:
 __fir:
 	[--SP] = ( R7:3, P5:2 );
 
-    P5 = R1; //data will be output here
+    I2 = R1; //data will be output here
+    B2 = R1;
+    L2 = 0;
+    M2 = 4;
 
 	P4 = R0;
 	P3 = R0;
@@ -138,17 +146,14 @@ __fir:
 		LC1 = R7; //fir->num
 		LOOP firInnerLoop LC1;
 		LOOP_BEGIN firInnerLoop;
-			R5 = [I1++M1];
-			R3 = [P2];
+			R5 = [I1++M1] || R3 = [P2];
 			P2 += 4;
 			R2 = R5 * R3;
 			R6 = R6 + R2;
 
 		LOOP_END firInnerLoop;
 
-		I0 += M0;
-		[P5] = R6;
-		P5+=4;
+		I0 += M0 || [I2++M2] = R6;
 	LOOP_END firLoop;
 
 	//save back variables
@@ -178,8 +183,7 @@ __delay_pop:
 	LOOP delayPopLoop LC0;
 	LOOP_BEGIN delayPopLoop;
 		R6 = [I0++M0];
-		[P5] = R6;
-		P5+=4;
+		[I1++M1] = R6;
 	LOOP_END delayPopLoop;
 
 	SP+=4;
@@ -348,8 +352,7 @@ pitch_shift_down_cont:
         R7 = [P2];
         R0 = R0 * R7; //multiply by the correct volume
 
-        [P5] = R0; //save and increment output pointers
-        P5 += 4;
+        [I1++M1] = R0; //save and increment output pointers
 
     LOOP_END delayPitchShiftDownLoop;
 
@@ -433,8 +436,7 @@ pitch_shift_up_cont:
         R7 = [P2];
         R0 = R0 * R7; //multiply by the correct volume
 
-        [P5] = R0; //save and increment output pointers
-        P5 += 4;
+        [I1++M1] = R0; //save and increment output pointers
 
     LOOP_END delayPitchShiftUpLoop;
 

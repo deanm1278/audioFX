@@ -41,6 +41,18 @@ struct fir {
 	uint32_t num;
 };
 
+struct biquad {
+    struct delayLine *output;
+    struct delayLine *input;
+    q31 *outptr;
+    q31 *inptr;
+    q28 a1;
+    q28 a2;
+    q28 b0;
+    q28 b1;
+    q28 b2;
+};
+
 extern "C" {
 
 extern void _delay_push(struct delayLine *line, q31 *buf, uint32_t num);
@@ -49,6 +61,7 @@ extern void _delay_modulate(struct delayTap *tap, q31 *buf, uint32_t num);
 extern void _delay_pitch_shift_down(struct delayTap *tap, q31 *buf, uint32_t num);
 extern void _delay_pitch_shift_up(struct delayTap *tap, q31 *buf, uint32_t num);
 extern void _fir(struct fir *f, q31 *buf, uint32_t num);
+extern void _biquad(struct biquad *b, q31 *buf, uint32_t num);
 
 };
 
@@ -128,6 +141,25 @@ static inline struct fir *initFIR(q31 *buf, uint32_t size, q31 *coeffs, uint32_t
 	return f;
 }
 
+static inline struct biquad *initBiquad(q31 *buf, uint32_t size, q28 a1, q28 a2, q28 b0, q28 b1, q28 b2)
+{
+    struct biquad *b = (struct biquad *)malloc (sizeof(struct biquad));
+    struct delayLine *output = initDelayLine(buf, size/2);
+    struct delayLine *input = initDelayLine(buf+size/2, size/2);
+
+    b->output = output;
+    b->outptr = output->data + (output->size - 1);
+    b->input = input;
+    b->inptr = input->data;
+    b->a1 = a1;
+    b->a2 = a2;
+    b->b0 = b0;
+    b->b1 = b1;
+    b->b2 = b2;
+
+    return b;
+}
+
 /* clock cycles ~= AUDIO_BUFSIZE * num_taps * 5.1
  * [FIR (21 taps)] : 14092
  */
@@ -136,6 +168,13 @@ static inline void FIRProcess(struct fir *f, q31 *bufIn, q31 *bufOut)
 	_delay_push(f->line, bufIn, AUDIO_BUFSIZE);
 	_fir(f, bufOut, AUDIO_BUFSIZE);
 }
+
+static inline void biquadProcess(struct biquad *f, q31 *bufIn, q31 *bufOut)
+{
+    _delay_push(f->input, bufIn, AUDIO_BUFSIZE);
+    _biquad(f, bufOut, AUDIO_BUFSIZE);
+}
+
 
 static inline void allpassProcess(struct allpass *ap, q31 *bufIn, q31 *bufOut)
 {

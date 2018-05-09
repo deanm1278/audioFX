@@ -165,6 +165,102 @@ __fir:
 	RTS;
 
 /*
+ * void _biquad(struct biquad *b, q31 *buf, uint32_t num);
+ */
+
+.align 2
+.global __biquad;
+.type __biquad, STT_FUNC;
+__biquad:
+    [--SP] = ( R7:3, P5:2 );
+
+    I2 = R1; //data will be output here
+    B2 = R1;
+    L2 = 0;
+
+    M0 = 4;
+    M1 = -4;
+    M2 = 12;
+    M3 = 8;
+
+    P4 = R0;
+    P3 = R0;
+    R5 = [P4]; //R5 = biquad->output
+
+    //load up output circular address
+    P4 = R5;
+    P4 += 4;
+    R7 = [P4]; //biquad->output.data
+    P4 += 4;
+    R6 = [P4]; //biquad->output.size
+
+    B0 = R7; //base = biquad->output.data
+
+    R6 <<= 2;
+    L0 = R6; //length = biquad->output.size << 2
+
+    P4 = R0;
+    P4 += 4;
+    R5 = [P4]; //R5 = biquad->input
+
+    //load up input circular address
+    P4 = R5;
+    P4 += 4;
+    R7 = [P4]; //biquad->input.data
+    P4 += 4;
+    R6 = [P4]; //biquad->input.size
+
+    B1 = R7; //base = biquad->input.data
+
+    R6 <<= 2;
+    L1 = R6; //length = biquad->input.size << 2
+
+    P4 = R0;
+    P4 += 8;
+    R7 = [P4];
+    I0 = R7; //I0 = biquad->outptr;
+    P4 += 4;
+    R7 = [P4];
+    I1 = R7; //I1 = biquad->inptr;
+
+    P4 += 4;
+    R3 = [P4]; P4 += 4; //R3 = a1
+    R4 = [P4]; P4 += 4; //R4 = a2
+    R5 = [P4]; P4 += 4; //R5 = b0
+    R6 = [P4]; P4 += 4; //R6 = b1
+    R7 = [P4]; P4 += 4; //R7 = b2
+    A0 = 0;
+    A1 = 0;
+
+    LC0 = R2; //num
+    LOOP biquadLoop LC0;
+    LOOP_BEGIN biquadLoop;
+        R1 = [I1];
+        (A1:0) += R1 * R5 || R1 = [I1++M1]; //b0 * x[i]
+        (A1:0) += R1 * R6 || R1 = [I1++M1]; //b1 * x[i-1]
+        (A1:0) += R1 * R7 || I1+=M2; //b2 * x[i-2]
+
+        R1 = [I0];
+        (A1:0) -= R1 * R3 || R1 = [I0++M1]; //a1 * y[i-1]
+        (R1:R0) = ((A1:0) -= R1 * R4) || I0+=M0; //a2 * y[i-2]
+        R1 <<= 3; //q28 to q31
+        [I0++M0] = R1;
+        [I2++M0] = R1;
+    LOOP_END biquadLoop;
+
+    //save back variables
+    P3 += 8;
+    R1 = I1;
+    [P3] = R1; //biquad->outptr
+
+    P3 += 4;
+    R1 = I0;
+    [P3] = R1; //biquad->inptr
+
+    ( R7:3, P5:2 ) = [ SP ++ ];
+    RTS;
+
+/*
  * void __delay_pop(struct delayTap *tap, q31 *buf, uint32_t num);
  */
 

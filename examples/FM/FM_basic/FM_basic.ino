@@ -1,15 +1,16 @@
 /*
  * A Simple FM sketch
  */
-
+#include "adau17x1.h"
 #include "audioFX.h"
 #include "fm.h"
 
-//create the fx object
-AudioFX fx;
+using namespace FX;
+
+adau17x1 iface;
 
 //create a 3 operator algorithm
-Operator op1, op2, op3;
+Operator op1(0), op2(1), op3(2);
 Operator *ops[] = {&op1, &op3, &op2};
 Algorithm A(ops, 3);
 
@@ -34,14 +35,16 @@ q16 notes[] = {
     _F16(554.37),
 };
 
+q31 outL[AUDIO_BUFSIZE];
+
 //this will be called when a buffer is ready to be filled
 void audioHook(q31 *data)
 {
-  for(int i=0; i<AUDIO_BUFSIZE; i++){
-     q31 output = v1.play(); //this example only uses one voice
-    *data++ = output; //set left
-    *data++ = output;
-  }
+  v1.play(outL);
+  //the output is 24 bit
+  for(int i=0; i<AUDIO_BUFSIZE; i++) outL[i] >>= 8;
+
+  interleave(data, outL, outL);
 }
 
 void setup(){
@@ -54,7 +57,7 @@ void setup(){
      *        |
      *      output
      */
-    op2.isCarrier = true; // op2 is carrier frequency
+    op2.isOutput = true; // op2 is carrier frequency
     op2.mods[0] = &op3; // op3 modulates op2
     op2.mods[1] = &op1; // op1 modulates op2
 
@@ -84,6 +87,8 @@ void setup(){
     op3.volume.decay.level = _F(0); // decay to zero
 
     op3.volume.sustain.level = _F(0); //zero sustain
+
+    iface.begin();
 
     //begin fx processor
     fx.begin();

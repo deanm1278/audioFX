@@ -8,6 +8,8 @@
 .extern __fm_sine;
 .type __fm_sine,STT_OBJECT;
 
+//TODO:apply same optimizations as in fm_modulate.S
+
 /* This is used if the operator uses feedback and is an output
  *
  * int _fm_modulate_feedback_output(int lastPos, q31 *buf, q16 *cFreq, q31 *volume_buf, q31 feedbackLevel, q31 *lastFeedback);

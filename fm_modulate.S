@@ -78,10 +78,18 @@ __mult_q16_single:
 .global __fm_modulate_output;
 .type __fm_modulate_output, STT_FUNC;
 __fm_modulate_output:
-	[--SP] = P2;
-	[--SP] = P3;
-	P2 = [SP+20]; //mod_buf
-	P3 = [SP+24]; //volume_buf
+	[--SP] = R4;
+	[--SP] = R3;
+	R4 = [SP+20]; //mod_buf
+	I0 = R4;
+	B0 = R4;
+	L0 = 0;
+	M0 = 4;
+	R3 = [SP+24]; //volume_buf
+	I3 = R3;
+	B3 = R3;
+	L3 = 0;
+	M3 = 4;
 
 	[--SP] = ( R7:3, P5:4 );
 	[--SP] = P1;
@@ -95,35 +103,36 @@ __fm_modulate_output:
 	P4.H = __fm_sine;
 	P4.L = __fm_sine;
 
-	P0 = R1; //buf
-	P1 = R2; //cfreq
+	I1 = R1; //buf
+	B1 = R1;
+	L1 = 0;
+	M1 = 4;
+
+	I2 = R2; //cfreq
+	B2 = R2;
+	L2 = 0;
+	M2 = 4;
 
 	R4 = 0x3FF;
 	R6 = R0 & R4;
 	R0 >>= 10;
 
-	R7 = AUDIO_BUFSIZE;
-	LC0 = R7;
+	R7 = FM_LOOKUP_INC;
+
+	R4 = AUDIO_BUFSIZE;
+	R5 = FM_LOOKUP_MOD;
+	LC0 = R4;
 	LOOP fmOutputLoop LC0;
 	LOOP_BEGIN fmOutputLoop;
-		R1 = [P1];
-		P1 += 4;
-		R7 = R1 << 16; //fraction
-		R5 = R1 >> 16; //integer
-		R4 = FM_LOOKUP_INC;
-		R3 = R4 * R7 (FU);
-		(R5:R4) = ((A1:0) = R4 * R5) (TFU);
+		R1 = [I2++M2];
+		(R3:R2) = ((A1:0) = R7 * R1) (TFU);
 
-		R2 = R4 + R3; // R2 = pi*freq*t
-
-		R3 = [P2];
-		P2 += 4;
+		R2 = PACK(R3.L, R2.H) || R3 = [I0++M0];
 
 		R2 = R2 + R3; //add modulators
 
 		R2 = R2 + R0; //add previous error
-		R3 = FM_LOOKUP_MOD;
-		R0 = R2 & R3;
+		R0 = R2 & R5;
 
 		//pos0 = (q31 * mul) >> 42
 		R3 = FM_LOOKUP_MUL;
@@ -137,21 +146,17 @@ __fm_modulate_output:
 		R6 = R3; //save plast
 
 		R3 <<= 2; //each sample is 4 bytes
-		R5 = P4;
-		R3 = R3 + R5;
+		R4 = P4;
+		R3 = R3 + R4;
 		P5 = R3;
 		R4 = [P5]; //val = y[pos0]
 
-		//multiply by volume
-		R3 = [P3];
-		P3 += 4;
-		R4 = R4 * R3;
+		R3 = [I3++M3];
+		R4 = R4 * R3 || R3 = [I1];
 
 		//add to output
-		R3 = [P0];
 		R4 = R4 + R3 (S);
-		[P0] = R4;
-		P0 += 4;
+		[I1++M1] = R4;
 
 	LOOP_END fmOutputLoop;
 
@@ -178,9 +183,13 @@ __fm_modulate_output:
 .global __fm_modulate;
 .type __fm_modulate, STT_FUNC;
 __fm_modulate:
-	[--SP] = P2;
+	[--SP] = R4;
 	[--SP] = P3;
-	P2 = [SP+20]; //mod_buf
+	R4 = [SP+20]; //mod_buf
+	I0 = R4;
+	B0 = R4;
+	L0 = 0;
+	M0 = 4;
 	P3 = [SP+24]; //volume_buf
 
 	[--SP] = ( R7:3, P5:4 );
@@ -195,31 +204,30 @@ __fm_modulate:
 	P4.H = __fm_sine;
 	P4.L = __fm_sine;
 
-	P0 = R1; //buf
-	P1 = R2; //cfreq
+	I1 = R1; //buf
+	B1 = R1;
+	L1 = 0;
+	M1 = 4;
+
+	I2 = R2; //cfreq
+	B2 = R2;
+	L2 = 0;
+	M2 = 4;
 
 	R4 = 0x3FF;
 	R6 = R0 & R4;
 	R0 >>= 10;
 
-	R7 = AUDIO_BUFSIZE;
-	LC0 = R7;
+	R7 = FM_LOOKUP_INC;
+
+	R4 = AUDIO_BUFSIZE;
+	LC0 = R4;
 	LOOP fmLoop LC0;
 	LOOP_BEGIN fmLoop;
-		R1 = [P1];
-		P1 += 4;
-
-		R7 = R1 << 16; //fraction
-		R5 = R1 >> 16; //integer
-		R4 = FM_LOOKUP_INC;
-		R3 = R4 * R7 (FU);
-		(R5:R4) = ((A1:0) = R4 * R5) (TFU);
-
-		R2 = R4 + R3; // R2 = pi*freq*t
+		R1 = [I2++M2];
+		(R3:R2) = ((A1:0) = R7 * R1) (TFU);
+		R2 = PACK(R3.L, R2.H) || R3 = [I0++M0];
 		R2 <<= 1;
-
-		R3 = [P2];
-		P2 += 4;
 
 		R2 = R2 + R3;
 
@@ -257,13 +265,11 @@ __fm_modulate:
 		//multiply delta by volume
 		R3 = [P3];
 		P3 += 4;
-		R4 = R4 * R3;
+		R4 = R4 * R3 || R3 = [I1];
 
-		//add delta to output buffer
-		R3 = [P0];
+		//add delta to output
 		R4 = R4 + R3 (S);
-		[P0] = R4;
-		P0 += 4;
+		[I1++M1] = R4;
 
 	LOOP_END fmLoop;
 

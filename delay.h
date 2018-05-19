@@ -161,6 +161,20 @@ static inline struct biquad *initBiquad(q31 *buf, q28 a1, q28 a2, q28 b0, q28 b1
     return b;
 }
 
+static inline struct biquad *initBiquad(q31 *buf)
+{
+	return initBiquad(buf, 0, 0, 0, 0, 0);
+}
+
+static inline void setBiquadCoeffs(struct biquad *bq, q28 *coeffs)
+{
+	bq->a1 = *coeffs++;
+	bq->a2 = *coeffs++;
+	bq->b0 = *coeffs++;
+	bq->b1 = *coeffs++;
+	bq->b2 = *coeffs++;
+}
+
 /* clock cycles ~= AUDIO_BUFSIZE * num_taps * 5.1
  * [FIR (21 taps)] : 14092
  */

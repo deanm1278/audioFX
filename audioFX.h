@@ -93,6 +93,15 @@ static inline void copy(q31 *dst, q31 *src)
 	}
 }
 
+static inline void limit24(q31 *dst)
+{
+	for(int i=0; i<AUDIO_BUFSIZE; i++){
+		if(*dst > 0x007FFFFF) *dst = 0x007FFFFF;
+		else if(*dst < -0x007FFFFF) *dst = -0x007FFFFF;
+		dst++;
+	}
+}
+
 class AudioFX : public I2S
 {
 public:

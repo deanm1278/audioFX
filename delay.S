@@ -229,32 +229,29 @@ __biquad:
     R5 = [P4]; P4 += 4; //R5 = b0
     R6 = [P4]; P4 += 4; //R6 = b1
     R7 = [P4]; P4 += 4; //R7 = b2
-    A0 = 0;
-    A1 = 0;
 
     LC0 = R2; //num
     LOOP biquadLoop LC0;
     LOOP_BEGIN biquadLoop;
-        R1 = [I1];
-        (A1:0) += R1 * R5 || R1 = [I1++M1]; //b0 * x[i]
-        (A1:0) += R1 * R6 || R1 = [I1++M1]; //b1 * x[i-1]
-        (A1:0) += R1 * R7 || I1+=M2; //b2 * x[i-2]
+    	R1 = [I1++M1];
+        (A1:0) = R1 * R5 || R1 = [I1++M1]; //b0 * x[i]
+        (A1:0) += R1 * R6 || R1 = [I1]; //b1 * x[i-1]
+        (A1:0) += R1 * R7 || I1+=M2 || R1 = [I0++M1]; //b2 * x[i-2]
 
-        R1 = [I0];
-        (A1:0) -= R1 * R3 || R1 = [I0++M1]; //a1 * y[i-1]
-        (R1:R0) = ((A1:0) -= R1 * R4) || I0+=M0; //a2 * y[i-2]
+        (A1:0) -= R1 * R3 || R1 = [I0++M3]; //a1 * y[i-1]
+        (R1:R0) = ((A1:0) -= R1 * R4); //a2 * y[i-2]
         R1 <<= 3; //q28 to q31
-        [I0++M0] = R1;
+        [I0] = R1;
         [I2++M0] = R1;
     LOOP_END biquadLoop;
 
     //save back variables
     P3 += 8;
-    R1 = I1;
+    R1 = I0;
     [P3] = R1; //biquad->outptr
 
     P3 += 4;
-    R1 = I0;
+    R1 = I1;
     [P3] = R1; //biquad->inptr
 
     ( R7:3, P5:2 ) = [ SP ++ ];

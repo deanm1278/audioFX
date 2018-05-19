@@ -2,6 +2,7 @@
 #define _LIBAUDIOFX_DELAY_H_
 
 #define PITCH_SHIFT_SIZE 2048
+#define BIQUAD_SIZE (AUDIO_BUFSIZE + 8)
 
 using namespace FX;
 
@@ -141,14 +142,14 @@ static inline struct fir *initFIR(q31 *buf, uint32_t size, q31 *coeffs, uint32_t
 	return f;
 }
 
-static inline struct biquad *initBiquad(q31 *buf, uint32_t size, q28 a1, q28 a2, q28 b0, q28 b1, q28 b2)
+static inline struct biquad *initBiquad(q31 *buf, q28 a1, q28 a2, q28 b0, q28 b1, q28 b2)
 {
     struct biquad *b = (struct biquad *)malloc (sizeof(struct biquad));
-    struct delayLine *output = initDelayLine(buf, size/2);
-    struct delayLine *input = initDelayLine(buf+size/2, size/2);
+    struct delayLine *output = initDelayLine(buf, 4);
+    struct delayLine *input = initDelayLine(buf+4, AUDIO_BUFSIZE+4);
 
     b->output = output;
-    b->outptr = output->data + (output->size - 1);
+    b->outptr = output->data;
     b->input = input;
     b->inptr = input->data;
     b->a1 = a1;

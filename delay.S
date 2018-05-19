@@ -79,8 +79,7 @@ __delay_setup:
     P4 += 4;
     R5 = [P4]; //R5 = tap->roc
     P4 += 4;
-    R4 = [P4]; //R4 = tap->top
-    [--SP] = R4;
+    R7 = [P4]; //R7 = tap->top
     P4 += 4;
     R3 = [P4]; //R3 = tap->direction
     P4 += 4;
@@ -279,8 +278,6 @@ __delay_pop:
 		[I1++M1] = R6;
 	LOOP_END delayPopLoop;
 
-	SP+=4;
-
 	//save back variables
     P3 += 4;
     R1 = I0;
@@ -334,33 +331,18 @@ __delay_modulate:
 		BITCLR (R0, 31); //clear sign bit
 		R0 = R0 * R2;
 		R0 = R1 + R0;
-		[P5] = R0;
-		P5 += 4;
+		[I1++M1] = R0;
 
-		//pop tap->top off the stack
-		R0 = [SP];
-
-		CC = R6 == R0;
-		IF CC JUMP dir_neg;
+		R2 = 0x80000000;
+		CC = R6 == R7;
+		IF CC R3 = R2;
 
 		R1 = 0 (X);
+		R2 = 0x7FFFFFFF;
 		CC = R6 == R1;
-		IF CC JUMP dir_pos;
-
-		JUMP delay_loop_continue;
-
-dir_neg:
-		R3 = 0x80000000; //dir = _F(-1)
-		JUMP delay_loop_continue;
-dir_pos:
-		R3 = 0x7FFFFFFF;
-
-delay_loop_continue:
-		NOP;
+		IF CC R3 = R2;
 
 	LOOP_END delayModulateLoop;
-
-	SP+=4;
 
 	//save back variables
 	P3 += 4;
@@ -449,8 +431,6 @@ pitch_shift_down_cont:
 
     LOOP_END delayPitchShiftDownLoop;
 
-    SP+=4;
-
     //save back variables
     P3 += 4;
     R1 = I0;
@@ -532,8 +512,6 @@ pitch_shift_up_cont:
         [I1++M1] = R0; //save and increment output pointers
 
     LOOP_END delayPitchShiftUpLoop;
-
-    SP+=4;
 
     //save back variables
     P3 += 4;

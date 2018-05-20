@@ -80,7 +80,7 @@ static inline struct delayTap *initDelayTap(struct delayLine *line, int offset)
 {
     struct delayTap *tap = (struct delayTap *)malloc (sizeof(struct delayTap));
     tap->parent = line;
-    tap->dptr = line->data + offset;
+    tap->dptr = line->data + line->size - offset;
     tap->currentOffset = offset;
     tap->err = offset << 16;
 
@@ -126,6 +126,20 @@ static inline struct allpass *initAllpass(q31 *buf, uint32_t size)
 	struct delayLine *line = initDelayLine(buf, size);
 	p->line = line;
 	p->tap = initDelayTap(line, AUDIO_BUFSIZE);
+
+	return p;
+}
+
+static inline struct allpass *initAllpass(q31 *buf, uint32_t size, uint32_t top)
+{
+	struct allpass *p = (struct allpass *)malloc (sizeof(struct allpass));
+	struct delayLine *line = initDelayLine(buf, size);
+	p->line = line;
+	p->tap = initDelayTap(line, 0, top);
+	p->tap->roc = 0;
+    p->tap->dptr = line->data + line->size - AUDIO_BUFSIZE;
+    p->tap->currentOffset = 0;
+    p->tap->err = 0;
 
 	return p;
 }
@@ -196,6 +210,16 @@ static inline void allpassProcess(struct allpass *ap, q31 *bufIn, q31 *bufOut)
 	q31 in[AUDIO_BUFSIZE];
 	for(int i=0; i<AUDIO_BUFSIZE; i++) in[i] = *bufIn++;
 	_delay_pop(ap->tap, bufOut, AUDIO_BUFSIZE);
+	mix(in, bufOut, _F(-.4));
+	mix(bufOut, in, _F(.4));
+	_delay_push(ap->line, in, AUDIO_BUFSIZE);
+}
+
+static inline void allpassModulate(struct allpass *ap, q31 *bufIn, q31 *bufOut)
+{
+	q31 in[AUDIO_BUFSIZE];
+	for(int i=0; i<AUDIO_BUFSIZE; i++) in[i] = *bufIn++;
+	_delay_modulate(ap->tap, bufOut, AUDIO_BUFSIZE);
 	mix(in, bufOut, _F(-.5));
 	mix(bufOut, in, _F(.5));
 	_delay_push(ap->line, in, AUDIO_BUFSIZE);

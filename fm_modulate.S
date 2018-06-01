@@ -10,36 +10,26 @@
 .type __mult_q16, STT_FUNC;
 __mult_q16:
 	[--SP] = ( R7:2 );
-	[--SP] = P0;
-	[--SP] = A0.x;
-	[--SP] = A0.w;
-	[--SP] = A1.x;
-	[--SP] = A1.w;
-	[--SP] = ASTAT;
 
-	P0 = R0;
+	I0 = R0;
+	M0 = 4;
+	L0 = 0;
+	B0 = R0;
 
 	R7 = AUDIO_BUFSIZE;
 	LC0 = R7;
 	LOOP mult16Loop LC0;
 	LOOP_BEGIN mult16Loop;
-		R2 = [P0];
+		R2 = [I0];
 
 		(R5:R4) = ((A1:0) = R2 * R1) (TFU);
 		R5 <<= 16;
 		R4 >>= 16;
 
 		R2 = R5 | R4;
-		[P0] = R2;
-		P0 += 4;
+		[I0++M0] = R2;
 	LOOP_END mult16Loop;
 
-	ASTAT = [SP++];
-	A1.w = [SP++];
-	A1.x = [SP++];
-	A0.w = [SP++];
-	A0.x = [SP++];
-	P0 = [SP++];
 	( R7:2 ) = [ SP ++ ];
 	RTS;
 
@@ -47,24 +37,12 @@ __mult_q16:
 .global __mult_q16_single;
 .type __mult_q16_single, STT_FUNC;
 __mult_q16_single:
-	[--SP] = A0.x;
-	[--SP] = A0.w;
-	[--SP] = A1.x;
-	[--SP] = A1.w;
-	[--SP] = ASTAT;
-
 
 	(R1:R0) = ((A1:0) = R0 * R1) (TFU);
 	R1 <<= 16;
 	R0 >>= 16;
 
 	R0 = R1 | R0;
-
-	ASTAT = [SP++];
-	A1.w = [SP++];
-	A1.x = [SP++];
-	A0.w = [SP++];
-	A0.x = [SP++];
 	RTS;
 
 .extern __fm_sine;
@@ -91,14 +69,9 @@ __fm_modulate_output:
 	L3 = 0;
 	M3 = 4;
 
-	[--SP] = ( R7:3, P5:4 );
+	[--SP] = ( R7:5, P5:4 );
 	[--SP] = P1;
 	[--SP] = P0;
-	[--SP] = A0.x;
-	[--SP] = A0.w;
-	[--SP] = A1.x;
-	[--SP] = A1.w;
-	[--SP] = ASTAT;
 
 	P4.H = __fm_sine;
 	P4.L = __fm_sine;
@@ -163,16 +136,11 @@ __fm_modulate_output:
 	R0 <<= 10;
 	R0 = R0 | R6; //return plast and error
 
-	ASTAT = [SP++];
-	A1.w = [SP++];
-	A1.x = [SP++];
-	A0.w = [SP++];
-	A0.x = [SP++];
 	P0 = [SP++];
 	P1 = [SP++];
-	( R7:3, P5:4 ) = [ SP ++ ];
-	P3 = [SP++];
-	P2 = [SP++];
+	( R7:5, P5:4 ) = [ SP ++ ];
+	R3 = [SP++];
+	R4 = [SP++];
 	RTS;
 
 /* This is used if the operator is not an output
@@ -190,16 +158,15 @@ __fm_modulate:
 	B0 = R4;
 	L0 = 0;
 	M0 = 4;
-	P3 = [SP+24]; //volume_buf
+	R3 = [SP+24]; //volume_buf
+	I3 = R3;
+	B3 = R3;
+	L3 = 0;
+	M3 = 4;
 
-	[--SP] = ( R7:3, P5:4 );
+	[--SP] = ( R7:5, P5:4 );
 	[--SP] = P1;
 	[--SP] = P0;
-	[--SP] = A0.x;
-	[--SP] = A0.w;
-	[--SP] = A1.x;
-	[--SP] = A1.w;
-	[--SP] = ASTAT;
 
 	P4.H = __fm_sine;
 	P4.L = __fm_sine;
@@ -263,8 +230,7 @@ __fm_modulate:
 		R4 = R4 - R3 (S); //delta = current - last
 
 		//multiply delta by volume
-		R3 = [P3];
-		P3 += 4;
+		R3 = [I3++M3];
 		R4 = R4 * R3 || R3 = [I1];
 
 		//add delta to output
@@ -276,14 +242,9 @@ __fm_modulate:
 	R0 <<= 10;
 	R0 = R0 | R6; //return plast and error
 
-	ASTAT = [SP++];
-	A1.w = [SP++];
-	A1.x = [SP++];
-	A0.w = [SP++];
-	A0.x = [SP++];
 	P0 = [SP++];
 	P1 = [SP++];
-	( R7:3, P5:4 ) = [ SP ++ ];
-	P3 = [SP++];
-	P2 = [SP++];
+	( R7:5, P5:4 ) = [ SP ++ ];
+	R3 = [SP++];
+	R4 = [SP++];
 	RTS;

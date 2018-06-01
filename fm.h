@@ -9,6 +9,9 @@
 #define AUDIOFX_FM_H_
 
 #include "utility.h"
+#include "audioFX.h"
+
+using namespace FX;
 
 #define FM_NUM_VOICES 8
 #define OP_MAX_INPUTS 4
@@ -102,6 +105,9 @@ public:
 
     q31 feedbackLevel;
 
+    q31 *precalculated;
+    bool saved;
+
     friend class Algorithm;
 
 protected:
@@ -140,7 +146,9 @@ public:
 
     void setOperators(Operator **operators, uint8_t numOperators) { ops = operators; numOps = numOperators; }
 
-private:
+    friend class Operator;
+
+protected:
     Operator **ops;
     uint8_t numOps;
 };
@@ -182,7 +190,7 @@ public:
 
     q28 getT() { return t; }
     void getOutput(q16 *buf) {
-    	memcpy(buf, cfreq, sizeof(q16)*AUDIO_BUFSIZE);
+    	copy((q31 *)buf, (q31 *)cfreq);
     };
 
     void play(q31 *buf, q31 gain=0, LFO<q16> *mod=NULL);

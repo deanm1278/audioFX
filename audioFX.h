@@ -56,11 +56,34 @@ static inline void splitSum(q31 *src, q31 *l, q31 *r, q31 lmix, q31 rmix){
 	}
 }
 
+static inline void splitSum(q31 *src, q31 *l, q31 *r, q31 *lmix, q31 *rmix){
+	for(int i=0; i<AUDIO_BUFSIZE; i++){
+		q31 vi = *src++;
+		q31 lv = *lmix++;
+		q31 rv = *rmix++;
+		q31 lo, ro;
+		__asm__ volatile("%0 = %1 * %2;" : "=d"(lo) : "d"(vi), "d"(lv));
+		__asm__ volatile("%0 = %1 * %2;" : "=d"(ro) : "d"(vi), "d"(rv));
+		*l++ = *l + lo;
+		*r++ = *r + ro;
+	}
+}
+
 static inline void gain(q31 *dst, q31 *src, q31 g){
 	for(int i=0; i<AUDIO_BUFSIZE; i++){
 		q31 vi = *src++;
 		q31 ret;
 		__asm__ volatile("%0 = %1 * %2;" : "=d"(ret) : "d"(vi), "d"(g));
+		*dst++ = ret;
+	}
+}
+
+static inline void gain(q31 *dst, q31 *src, q31 *g){
+	for(int i=0; i<AUDIO_BUFSIZE; i++){
+		q31 vi = *src++;
+		q31 c = *g++;
+		q31 ret;
+		__asm__ volatile("%0 = %1 * %2;" : "=d"(ret) : "d"(vi), "d"(c));
 		*dst++ = ret;
 	}
 }
@@ -75,6 +98,17 @@ static inline void mix(q31 *dst, q31 *src, q31 coeff)
 		q31 vi = *src++;
 		q31 ret;
 		__asm__ volatile("%0 = %1 * %2;" : "=d"(ret) : "d"(vi), "d"(coeff));
+		*dst++ = *dst + ret;
+	}
+}
+
+static inline void mix(q31 *dst, q31 *src, q31 *coeff)
+{
+	for(int i=0; i<AUDIO_BUFSIZE; i++){
+		q31 vi = *src++;
+		q31 c = *coeff++;
+		q31 ret;
+		__asm__ volatile("%0 = %1 * %2;" : "=d"(ret) : "d"(vi), "d"(c));
 		*dst++ = *dst + ret;
 	}
 }
@@ -115,11 +149,6 @@ public:
 	static void (*audioHook)(int32_t *);
 	static Timer _tmr;
 	static MdmaArbiter _arb;
-
-	uint8_t *tempAlloc(void *data, uint8_t size);
-
-	static uint8_t *tempPoolPtr;
-	static uint8_t tempPool[AUDIO_TEMP_POOL_SIZE];
 };
 
 

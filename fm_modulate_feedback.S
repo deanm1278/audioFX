@@ -19,47 +19,49 @@
 .type __fm_modulate_feedback_output, STT_FUNC;
 __fm_modulate_feedback_output:
 	[--SP] = P2;
-	[--SP] = P3;
 	[--SP] = R3;
-	P3 = [SP+24]; //volume_buf
-	R3 = [SP+28]; //feedbackLevel
-	P2 = [SP+32]; //lastFeedback
+	R3 = [SP+20]; //volume_buf
+		I3 = R3;
+		B3 = R3;
+		L3 = 0;
+		M3 = 4;
+	R3 = [SP+24]; //feedbackLevel
+	P2 = [SP+28]; //lastFeedback
 
 	[--SP] = ( R7:4, P5:4 );
 	[--SP] = P1;
 	[--SP] = P0;
-	[--SP] = A0.x;
-	[--SP] = A0.w;
-	[--SP] = A1.x;
-	[--SP] = A1.w;
-	[--SP] = ASTAT;
 
 	[--SP] = R3;
 
 	P4.H = __fm_sine;
 	P4.L = __fm_sine;
 
-	P0 = R1; //buf
-	P1 = R2; //cfreq
+	I1 = R1; //buf
+	B1 = R1;
+	L1 = 0;
+	M1 = 4;
+
+	I2 = R2; //cfreq
+		B2 = R2;
+		L2 = 0;
+		M2 = 4;
 
 	R4 = 0x3FF;
 	R6 = R0 & R4;
     R0 = R0 >> 10;
 
-	R7 = AUDIO_BUFSIZE;
-	LC0 = R7;
+    R7 = FM_LOOKUP_INC;
+
+	R4 = AUDIO_BUFSIZE;
+	R5 = FM_LOOKUP_MOD;
+	LC0 = R4;
 	LOOP fmFeedbackOutputLoop LC0;
 	LOOP_BEGIN fmFeedbackOutputLoop;
-		R1 = [P1];
-		P1 += 4;
+		R1 = [I2++M2];
+		(R3:R2) = ((A1:0) = R7 * R1) (TFU);
 
-		R7 = R1 << 16; //fraction
-		R5 = R1 >> 16; //integer
-		R4 = FM_LOOKUP_INC;
-		R3 = R4 * R7 (FU);
-		(R5:R4) = ((A1:0) = R4 * R5) (TFU);
-
-		R2 = R4 + R3; // R2 = freq*t
+		R2 = PACK(R3.L, R2.H);
 
 		//get feedback parameter
 		R3 = [P2];
@@ -112,16 +114,12 @@ __fm_modulate_feedback_output:
 		//store in feedback param
 		[P2] = R3;
 
-		//multiply by volume
-		R3 = [P3];
-		P3 += 4;
-		R4 = R4 * R3;
+		R3 = [I3++M3];
+		R4 = R4 * R3 || R3 = [I1];
 
 		//add to output
-		R3 = [P0];
-		R4 = R4 + R3;
-		[P0] = R4;
-		P0 += 4;
+		R4 = R4 + R3 (S);
+		[I1++M1] = R4;
 
 	LOOP_END fmFeedbackOutputLoop;
 
@@ -130,16 +128,10 @@ __fm_modulate_feedback_output:
 
 	SP+=4;
 
-	ASTAT = [SP++];
-	A1.w = [SP++];
-	A1.x = [SP++];
-	A0.w = [SP++];
-	A0.x = [SP++];
 	P0 = [SP++];
 	P1 = [SP++];
 	( R7:4, P5:4 ) = [ SP ++ ];
 	R3 = [SP++];
-	P3 = [SP++];
 	P2 = [SP++];
 	RTS;
 
@@ -152,47 +144,49 @@ __fm_modulate_feedback_output:
 .type __fm_modulate_feedback, STT_FUNC;
 __fm_modulate_feedback:
 	[--SP] = P2;
-	[--SP] = P3;
 	[--SP] = R3;
-	P3 = [SP+24]; //volume_buf
-	R3 = [SP+28]; //feedbackLevel
-	P2 = [SP+32]; //lastFeedback
+	R3 = [SP+20]; //volume_buf
+		I3 = R3;
+		B3 = R3;
+		L3 = 0;
+		M3 = 4;
+	R3 = [SP+24]; //feedbackLevel
+	P2 = [SP+28]; //lastFeedback
 
 	[--SP] = ( R7:4, P5:4 );
 	[--SP] = P1;
 	[--SP] = P0;
-	[--SP] = A0.x;
-	[--SP] = A0.w;
-	[--SP] = A1.x;
-	[--SP] = A1.w;
-	[--SP] = ASTAT;
 
 	[--SP] = R3;
 
 	P4.H = __fm_sine;
 	P4.L = __fm_sine;
 
-	P0 = R1; //buf
-	P1 = R2; //cfreq
+	I1 = R1; //buf
+		B1 = R1;
+		L1 = 0;
+		M1 = 4;
+
+	I2 = R2; //cfreq
+		B2 = R2;
+		L2 = 0;
+		M2 = 4;
 
 	R4 = 0x3FF;
 	R6 = R0 & R4;
     R0 = R0 >> 10;
 
-	R7 = AUDIO_BUFSIZE;
-	LC0 = R7;
+    R7 = FM_LOOKUP_INC;
+
+	R4 = AUDIO_BUFSIZE;
+	R5 = FM_LOOKUP_MOD;
+	LC0 = R4;
 	LOOP fmFeedbackLoop LC0;
 	LOOP_BEGIN fmFeedbackLoop;
-		R1 = [P1];
-		P1 += 4;
+		R1 = [I2++M2];
+		(R3:R2) = ((A1:0) = R7 * R1) (TFU);
 
-		R7 = R1 << 16; //fraction
-		R5 = R1 >> 16; //integer
-		R4 = FM_LOOKUP_INC;
-		R3 = R4 * R7 (FU);
-		(R5:R4) = ((A1:0) = R4 * R5) (TFU);
-
-		R2 = R4 + R3; // R2 = freq*t
+		R2 = PACK(R3.L, R2.H);
 		R2 <<= 1;
 
 		//get feedback parameter
@@ -243,16 +237,13 @@ __fm_modulate_feedback:
 		//store in feedback param
 		[P2] = R3;
 
-		//multiply the delta by volume
-		R4 = [P3];
-		P3 += 4;
-		R3 = R4 * R3;
+		//multiply delta by volume
+		R4 = [I3++M3];
+		R3 = R4 * R3 || R4 = [I1];
 
-		//add the delta to the return buffer
-		R4 = [P0];
-		R4 = R4 + R3;
-		[P0] = R4;
-		P0 += 4;
+		//add delta to output
+		R4 = R4 + R3 (S);
+		[I1++M1] = R4;
 
 	LOOP_END fmFeedbackLoop;
 
@@ -261,15 +252,9 @@ __fm_modulate_feedback:
 
 	SP+=4;
 
-	ASTAT = [SP++];
-	A1.w = [SP++];
-	A1.x = [SP++];
-	A0.w = [SP++];
-	A0.x = [SP++];
 	P0 = [SP++];
 	P1 = [SP++];
 	( R7:4, P5:4 ) = [ SP ++ ];
 	R3 = [SP++];
-	P3 = [SP++];
 	P2 = [SP++];
 	RTS;

@@ -7,11 +7,14 @@
 
 #include "fm.h"
 
+using namespace FX;
+
 Operator::Operator(int id) : volume(), id(id) {
     isOutput = false;
     carrierOverride = false;
     carrier = NULL;
     feedbackLevel = 0;
+    saved = false;
 
     for(int i=0; i<OP_MAX_INPUTS; i++)
         mods[i] = NULL;
@@ -30,10 +33,11 @@ void Operator::setCarrier(Modulator<q16> *mod)
 void Operator::getOutput(q31 *buf, Voice *voice) {
 
     if(!calculated){
+        calculated = true;
 
     	//calculate modulators
     	q31 mod_buf[AUDIO_BUFSIZE];
-    	memset(mod_buf, 0, AUDIO_BUFSIZE*sizeof(q31));
+    	zero(mod_buf);
 
         for(int ix=0; ix<OP_MAX_INPUTS; ix++){
             if(mods[ix] != NULL)
@@ -45,6 +49,10 @@ void Operator::getOutput(q31 *buf, Voice *voice) {
         volume.getOutput(volume_buf, voice, voice->lastVolume[id]);
         if(voice->active)
         	voice->lastVolume[id] = volume_buf[AUDIO_BUFSIZE - 1]; //save the last volume for release
+
+		//TODO: velocity scaling
+
+		//TODO: keyboard scaling
 
         q28 t = voice->getT();
         q16 cfreq[AUDIO_BUFSIZE];
@@ -63,22 +71,49 @@ void Operator::getOutput(q31 *buf, Voice *voice) {
             	voice->lastPos[id] = _fm_modulate_feedback(voice->lastPos[id], buf, cfreq, volume_buf, feedbackLevel, &voice->lastFeedback[id]);
         }
 
+		//look for another place this is used and save output if necessary
+		for(int i=0; i<voice->algorithm->numOps; i++){
+			if(!voice->algorithm->ops[i]->calculated){
+				for(int j=0; j<OP_MAX_INPUTS; j++){
+					if(voice->algorithm->ops[i]->mods[j] != NULL){
+						if(voice->algorithm->ops[i]->mods[j]->id == id){
+							saved = true;
+							break;
+						}
+					}
+				}
+				if(saved) break;
+			}
+		}
 
-        calculated = true;
+		if(saved){
+			precalculated = (q31 *)malloc(AUDIO_BUFSIZE*sizeof(q31));
+			copy(precalculated, buf);
+		}
     }
+	else {
+		//sum precalculated buffer into output
+		sum(buf, precalculated);
+	}
 }
 
 void Algorithm::getOutput(q31 *buf, Voice *voice) {
     for(int i=0; i<numOps; i++){
         ops[i]->calculated = false;
+        ops[i]->saved = false;
         if(ops[i]->isOutput && !ops[i]->carrierOverride) ops[i]->carrier = voice;
     }
 
+	//TODO: auto-determine outputs based on routing
     for(int i=0; i<numOps; i++){
-        //set carriers to the voice frequency and calculate
-        if(ops[i]->isOutput){
+        if(ops[i]->isOutput)
             ops[i]->getOutput(buf, voice);
-        }
+    }
+
+	//free any saved outputs
+	for(int i=0; i<numOps; i++){
+		if(ops[i]->saved)
+			free(ops[i]->precalculated);
     }
 }
 
@@ -195,8 +230,7 @@ void Voice::play(q31 *buf, q31 gain, LFO<q16> *mod) {
 		mod->getOutput(cfreq, &lastLFO); //run it through the modulator
 
 	q31 tmpBuffer[AUDIO_BUFSIZE];
-	memset(tmpBuffer, 0, AUDIO_BUFSIZE*sizeof(q31));
-
+	zero(tmpBuffer);
 
 	algorithm->getOutput(tmpBuffer, this);
 
@@ -204,7 +238,7 @@ void Voice::play(q31 *buf, q31 gain, LFO<q16> *mod) {
 		q31 u, v = tmpBuffer[i], w = buf[i];
 		__asm__ volatile("R2 = %1 * %2;" \
 						"%0 = R2 + %3 (S);"
-						: "=r"(u) : "r"(v), "r"(this->gain), "r"(w) : "R2");
+						: "=r"(u) : "d"(v), "d"(this->gain), "d"(w) : "R2");
 		buf[i] = u;
 	}
 

@@ -24,9 +24,6 @@ void (*AudioFX::audioHook)(int32_t *);
 
 MdmaArbiter AudioFX::_arb;
 
-uint8_t AudioFX::tempPool[AUDIO_TEMP_POOL_SIZE];
-uint8_t *AudioFX::tempPoolPtr = AudioFX::tempPool;
-
 DMADescriptor dRead0, dRead1, dRead2, dWrite0, dWrite1, dWrite2;
 
 static DMADescriptor *dRead[3];
@@ -113,14 +110,6 @@ void AudioFX::deinterleave(int32_t * left, int32_t *right, int32_t *src)
 	deinterleave(left, right, src, NULL);
 }
 
-uint8_t *AudioFX::tempAlloc(void *data, uint8_t size)
-{
-	uint8_t *ptr = tempPoolPtr;
-	memcpy(tempPoolPtr, data, size);
-	tempPoolPtr += size;
-	return ptr;
-}
-
 AudioFX fx;
 
 extern "C" {
@@ -132,8 +121,6 @@ __attribute__ ((saveall)) int SPORT0_B_DMA_Handler (int IQR_NUMBER )
 	procBuf = &buffers[intCount];
 
 	intCount = (intCount + 1) % 3;
-
-	AudioFX::tempPoolPtr = AudioFX::tempPool;
 
 	if(AudioFX::audioHook != NULL) AudioFX::audioHook(*procBuf);
 

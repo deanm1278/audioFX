@@ -3,15 +3,14 @@
  */
 
 #include "MIDI.h"
+#include "adau17x1.h"
 #include "audioFX.h"
 #include "fm.h"
 #include "midi_notes.h"
 
+using namespace FX;
 
 MIDI_CREATE_INSTANCE(HardwareSerial, Serial1,  MIDI);
-
-volatile bool bufferReady;
-q31 *dataPtr;
 
 static RAMB q31 outputDataL[AUDIO_BUFSIZE], outputDataR[AUDIO_BUFSIZE];
 static uint32_t roundRobin = 0;
@@ -24,6 +23,8 @@ LFO<q31> lfoVol2( _F16(2.5) );
 #define DECAY_TIME 50
 #define DECAY_LVL .25
 #define SUSTAIN_LVL 0
+
+adau17x1 iface;
 
 void handleNoteOn(byte channel, byte pitch, byte velocity);
 void handleNoteOff(byte channel, byte pitch, byte velocity);
@@ -39,7 +40,7 @@ Algorithm A(ops, NUM_OPERATORS);
 
 #define NUM_VOICES 8
 Voice v1(&A), v2(&A), v3(&A), v4(&A), v5(&A), v6(&A), v7(&A), v8(&A);
-Voice *voices[NUM_VOICES] = {&v1, &v2, &v3, &v4, &v5, &v6, &v7, &v8};
+Voice *voices[] = {&v1, &v2, &v3, &v4, &v5, &v6, &v7, &v8};
 
 RatioFrequency op2Ratio(&op1, _F16(14.0));
 RatioFrequency op4Ratio(&op1, _F16(.5));
@@ -60,6 +61,7 @@ void setup()
 
 	op1.isOutput = true;
 	op3.isOutput = true;
+	//op6.isOutput = true;
 
 	op1.mods[0] = &op2;
 
@@ -148,9 +150,7 @@ void setup()
 
   //***** END OF PATCH SETUP *****//
 
-  Serial.begin(9600);
-
-  bufferReady = false;
+  iface.begin();
 
   //begin fx processor
   fx.begin();
@@ -171,25 +171,6 @@ void loop()
 {
     // Call MIDI.read the fastest you can for real-time performance.
     MIDI.read();
-
-    if(bufferReady){
-
-    memset(outputDataL, 0, AUDIO_BUFSIZE*sizeof(q31));
-
-    for(int i=0; i<NUM_VOICES; i++)
-      voices[i]->play(outputDataL);
-
-    memcpy(outputDataR, outputDataL, AUDIO_BUFSIZE*sizeof(q31));
-    lfoVol.getOutput(outputDataL);
-    lfoVol2.getOutput(outputDataR);
-
-    for(int i=0; i<AUDIO_BUFSIZE; i++){
-      *dataPtr++ = outputDataL[i];
-      *dataPtr++ = outputDataR[i];
-    }
-
-    bufferReady = false;
-    }
     __asm__ volatile("IDLE;");
 }
 
@@ -241,6 +222,17 @@ void handleCC(byte channel, byte number, byte value)
 
 void audioHook(q31 *data)
 {
-  dataPtr = data;
-  bufferReady = true;
+  zero(outputDataL);
+
+  for(int i=0; i<NUM_VOICES; i++)
+    voices[i]->play(outputDataL);
+
+  for(int i=0; i<AUDIO_BUFSIZE; i++) outputDataL[i] >>= 7;
+
+  copy(outputDataR, outputDataL);
+
+  lfoVol.getOutput(outputDataL);
+  lfoVol2.getOutput(outputDataR);
+
+  interleave(data, outputDataL, outputDataR);
 }

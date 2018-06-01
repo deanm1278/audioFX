@@ -37,22 +37,19 @@ void audioLoop(q31 *data)
     triangle(wave, lfoData);
 
     q31 in;
-  for(int i=0; i<AUDIO_BUFSIZE; i++){
-    out = deinterleavedL[i] + _mult32x32(out, feedback);
-    for(int j=0; j<NUM_AP; j++){
-      q31 kval = k[j] + lfoData[i];
-      in = out + _mult32x32(last[j], kval);
-      out = last[j] + _mult32x32(in, __builtin_bfin_negate_fr1x32(kval));
-      last[j] = in;
-    }
-    scratch[i] = out;
-  }
-  mix(scratch, deinterleavedL, depth);
+	for(int i=0; i<AUDIO_BUFSIZE; i++){
+		out = deinterleavedL[i] + _mult32x32(out, feedback);
+		for(int j=0; j<NUM_AP; j++){
+			q31 kval = k[j] + lfoData[i];
+			in = out + _mult32x32(last[j], kval);
+			out = last[j] + _mult32x32(in, __builtin_bfin_negate_fr1x32(kval));
+			last[j] = in;
+		}
+		scratch[i] = out;
+	}
+	mix(deinterleavedL, scratch, depth);
 
-  //limit to 24 bits because we're using a 24 bit DAC
-  limit24(scratch);
-  
-  interleave(data, scratch, scratch);
+	interleave(data, deinterleavedL, deinterleavedL);
 }
 
 void setup(){

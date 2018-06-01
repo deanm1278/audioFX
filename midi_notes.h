@@ -8,6 +8,6 @@
 #ifndef AUDIOFX_MIDI_NOTES_H_
 #define AUDIOFX_MIDI_NOTES_H_
 
-extern const q16 midi_notes[];
+extern q16 midi_notes[];
 
 #endif /* AUDIOFX_MIDI_NOTES_H_ */

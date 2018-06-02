@@ -101,6 +101,7 @@ public:
 
     Envelope<q31> volume;
 
+    bool active;
     bool isOutput;
 
     q31 feedbackLevel;

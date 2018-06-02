@@ -54,7 +54,6 @@ __fm_modulate_feedback_output:
     R7 = FM_LOOKUP_INC;
 
 	R4 = AUDIO_BUFSIZE;
-	R5 = FM_LOOKUP_MOD;
 	LC0 = R4;
 	LOOP fmFeedbackOutputLoop LC0;
 	LOOP_BEGIN fmFeedbackOutputLoop;
@@ -179,19 +178,16 @@ __fm_modulate_feedback:
     R7 = FM_LOOKUP_INC;
 
 	R4 = AUDIO_BUFSIZE;
-	R5 = FM_LOOKUP_MOD;
 	LC0 = R4;
 	LOOP fmFeedbackLoop LC0;
 	LOOP_BEGIN fmFeedbackLoop;
 		R1 = [I2++M2];
 		(R3:R2) = ((A1:0) = R7 * R1) (TFU);
-
 		R2 = PACK(R3.L, R2.H);
 		R2 <<= 1;
 
 		//get feedback parameter
 		R3 = [P2];
-		R3 >>>= 1;
 		R5 = [SP];
 		R3 = R3 * R5; //multiply by feedback level
 
@@ -240,6 +236,7 @@ __fm_modulate_feedback:
 		//multiply delta by volume
 		R4 = [I3++M3];
 		R3 = R4 * R3 || R4 = [I1];
+		R3 <<= 1; //TODO: figure out where we might be losing this factor of 2?
 
 		//add delta to output
 		R4 = R4 + R3 (S);

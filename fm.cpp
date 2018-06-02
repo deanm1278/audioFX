@@ -11,6 +11,7 @@ using namespace FX;
 
 Operator::Operator(int id) : volume(), id(id) {
     isOutput = false;
+    active = true;
     carrierOverride = false;
     carrier = NULL;
     feedbackLevel = 0;
@@ -40,7 +41,7 @@ void Operator::getOutput(q31 *buf, Voice *voice) {
     	zero(mod_buf);
 
         for(int ix=0; ix<OP_MAX_INPUTS; ix++){
-            if(mods[ix] != NULL)
+            if(mods[ix] != NULL && mods[ix]->active)
             	mods[ix]->getOutput(mod_buf, voice);
         }
 
@@ -101,12 +102,12 @@ void Algorithm::getOutput(q31 *buf, Voice *voice) {
     for(int i=0; i<numOps; i++){
         ops[i]->calculated = false;
         ops[i]->saved = false;
-        if(ops[i]->isOutput && !ops[i]->carrierOverride) ops[i]->carrier = voice;
+        if((ops[i]->isOutput && !ops[i]->carrierOverride) || ops[i]->carrier == NULL) ops[i]->carrier = voice;
     }
 
 	//TODO: auto-determine outputs based on routing
     for(int i=0; i<numOps; i++){
-        if(ops[i]->isOutput)
+        if(ops[i]->isOutput && ops[i]->active)
             ops[i]->getOutput(buf, voice);
     }
 
@@ -119,10 +120,10 @@ void Algorithm::getOutput(q31 *buf, Voice *voice) {
 
 template <>
 void Envelope<q31>::setDefaults(){
-    attack  = { _F(.999), 0 };
+    attack  = { _F(0), 0 };
     decay   = { _F(0), 0 };
     decay2   = { _F(0), 0 };
-    sustain = { _F(.999), 0 };
+    sustain = { _F(0), 0 };
     release = { _F(0), 0 };
 }
 

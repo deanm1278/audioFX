@@ -23,10 +23,8 @@ __mult_q16:
 		R2 = [I0];
 
 		(R5:R4) = ((A1:0) = R2 * R1) (TFU);
-		R5 <<= 16;
-		R4 >>= 16;
+		R2 = PACK(R5.L, R4.H);
 
-		R2 = R5 | R4;
 		[I0++M0] = R2;
 	LOOP_END mult16Loop;
 
@@ -39,10 +37,8 @@ __mult_q16:
 __mult_q16_single:
 
 	(R1:R0) = ((A1:0) = R0 * R1) (TFU);
-	R1 <<= 16;
-	R0 >>= 16;
+	R0 = PACK(R1.L, R0.H);
 
-	R0 = R1 | R0;
 	RTS;
 
 .extern __fm_sine;

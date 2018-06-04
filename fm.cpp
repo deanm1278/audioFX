@@ -16,6 +16,7 @@ Operator::Operator(int id) : volume(), id(id) {
     carrier = NULL;
     feedbackLevel = 0;
     saved = false;
+    velSense = _F(.999);
 
     for(int i=0; i<OP_MAX_INPUTS; i++)
         mods[i] = NULL;
@@ -51,9 +52,11 @@ void Operator::getOutput(q31 *buf, Voice *voice) {
         if(voice->active)
         	voice->lastVolume[id] = volume_buf[AUDIO_BUFSIZE - 1]; //save the last volume for release
 
-		//TODO: velocity scaling
+		//velocity scaling
+        q31 vmod = 0x7FFFFFFF - _mult32x32((0x7FFFFFFF - voice->velocity), velSense);
+        gain(volume_buf, volume_buf, vmod);
 
-		//TODO: keyboard scaling
+		//TODO: keyboard/range scaling
 
         q28 t = voice->getT();
         q16 cfreq[AUDIO_BUFSIZE];

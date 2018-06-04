@@ -104,6 +104,8 @@ public:
     bool active;
     bool isOutput;
 
+    q31 velSense;
+
     q31 feedbackLevel;
 
     q31 *precalculated;
@@ -172,16 +174,17 @@ public:
 
 class Voice : public Modulator<q16>{
 public:
-    Voice(Algorithm *algo) {
+    Voice(Algorithm *algo, q31 gain = _F(.999)) {
     	algorithm = algo;
     	t = 0;
     	active = false;
     	ms = 1;
-    	gain = _F(.999);
+    	this->gain = gain;
     	hold = false;
     	queueStop = false;
     	interruptable = true;
     	lastLFO = 0;
+    	velocity = _F(.999);
     	cfreq = NULL;
     	memset(lastPos, 0, sizeof(int)*FM_MAX_OPERATORS);
     	memset(lastFeedback, 0, sizeof(q31)*FM_MAX_OPERATORS);
@@ -214,6 +217,7 @@ public:
 
     volatile bool active;
     volatile bool queueStop;
+    q31 velocity;
     uint32_t ms;
     q31 gain;
     bool hold;

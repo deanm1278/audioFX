@@ -287,6 +287,61 @@ __delay_pop:
 	UNLINK;
 	RTS;
 
+/*
+ * void _delay_move(struct delayTap *tap, uint32_t newOffset);
+ */
+
+.align 2
+.global __delay_move;
+.type __delay_move, STT_FUNC;
+__delay_move:
+	[--SP] = ( R7:2, P5:3 );
+
+    P4 = R0;
+    P3 = R0;
+    R5 = [P4]; //R5 = tap->parent
+
+    //load up circular address
+    P4 = R5;
+    P4 += 4;
+    R7 = [P4]; //line.data
+    P4 += 4;
+    R6 = [P4]; //line.size
+
+    B0 = R7; //base = line.data
+
+    R6 <<= 2;
+    L0 = R6; //length = line.size << 2
+
+    P4 = R0;
+    P4 += 4;
+    R7 = [P4];
+    I0 = R7; //I0 = tap->dptr;
+    P4 += 4;
+    R6 = [P4]; //R6 = tap->currentOffset
+    P4 += 16;
+    R4 = [P4]; //R4 = err
+
+    R7 = R1 - R6; //new offset - old offset
+    R2 = R7 << 2;
+
+	M0 = R2;
+	I0 += M0;
+
+	//save back variables
+	P3 += 4;
+	R1 = I0;
+	[P3] = R1;
+	P3 += 4; //tap->dptr
+	R1 = R6 + R7;
+	[P3] = R1;
+	P3 += 16; //tap->currentOffset
+	R1 <<= 16;
+	[P3] = R1; //tap->err
+
+	( R7:2, P5:3 ) = [ SP ++ ];
+	RTS;
+
 
 /*
  * void _delay_modulate(struct delayTap *tap, q31 *buf, uint32_t num);

@@ -63,6 +63,7 @@ extern void _delay_pitch_shift_down(struct delayTap *tap, q31 *buf, uint32_t num
 extern void _delay_pitch_shift_up(struct delayTap *tap, q31 *buf, uint32_t num);
 extern void _fir(struct fir *f, q31 *buf, uint32_t num);
 extern void _biquad(struct biquad *b, q31 *buf, uint32_t num);
+extern void _delay_move(struct delayTap *tap, uint32_t newOffset);
 
 };
 

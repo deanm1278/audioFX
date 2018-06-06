@@ -1,4 +1,6 @@
-/* for easy patching through MAX MIDI interface */
+/* 8 Voices, 6 operators.
+ * For use with MIDI MAX MSP patcher
+ */
 
 #include "MIDI.h"
 #include "adau17x1.h"
@@ -79,11 +81,15 @@ float transposeSteps[] = {
 };
 
 //********** FILTER *****************//
-RAMB q31 bqData[BIQUAD_SIZE], bq2Data[BIQUAD_SIZE];
-struct biquad *bq, *bq2;
+RAMB q31 bqData[NUM_VOICES*2][BIQUAD_SIZE];
+struct biquad *bq[NUM_VOICES*2];
+q31 filterLasts[NUM_VOICES];
 
 //the filter parameters
-int Q, cutoff;
+int Q;
+bool filterOn = true;
+
+Envelope<q31> filterEnv;
 
 //********** DELAY *****************//
 #define DELAY_SIZE (AUDIO_BUFSIZE*128)
@@ -98,8 +104,10 @@ void chooseAlgo(uint8_t num);
 void setup()
 {
   chooseAlgo(32);
-  bq = initBiquad(bqData);
-  bq2 = initBiquad(bq2Data);
+
+  //initialize voice filters
+  for(int i=0; i<NUM_VOICES*2; i++)
+	  bq[i] = initBiquad(bqData[i]);
 
   line = initDelayLine(delayBuf, DELAY_SIZE);
   tap = initDelayTap(line, 0);
@@ -195,15 +203,7 @@ q16 midiToPitch(uint8_t ix){
 void handleCC(byte channel, byte number, byte value)
 {
   //Serial.print(number); Serial.print(", "); Serial.println(value);
-  //hack for minilogue filter knob
-  if(number == 43){
-	  cutoff = (int)value << 1;
-	  setBiquadCoeffs(bq, lp_coeffs[Q][cutoff]);
-	  setBiquadCoeffs(bq2, lp_coeffs[Q][cutoff]);
-	  return;
-  }
-
-  if(number >= 10){
+  if(number >= 10 && number < 100){
 	  uint8_t op = floor( (number - 10) /15);
 	  uint8_t offset = (number - 10) % 15;
 
@@ -255,11 +255,6 @@ void handleCC(byte channel, byte number, byte value)
   }
   else{
 	  switch(number){
-		  case 1:
-			  cutoff = (int)value << 1;
-			  setBiquadCoeffs(bq, lp_coeffs[Q][cutoff]);
-			  setBiquadCoeffs(bq2, lp_coeffs[Q][cutoff]);
-			  break;
 		  case 2:
 			  chooseAlgo(value);
 			  break;
@@ -279,8 +274,6 @@ void handleCC(byte channel, byte number, byte value)
 
 		  case 6:
 			  Q = constrain(value, 0, 15);
-			  setBiquadCoeffs(bq, lp_coeffs[Q][cutoff]);
-			  setBiquadCoeffs(bq2, lp_coeffs[Q][cutoff]);
 			  break;
 
 		  case 7:
@@ -295,6 +288,34 @@ void handleCC(byte channel, byte number, byte value)
 			  delayMix = (q31)value * CC_SCALE;
 			  break;
 
+		  case 100:
+			  filterEnv.attack.time = (uint16_t)value * (uint16_t)value;
+			  break;
+		  case 101:
+			  filterEnv.attack.level = (q31)value * CC_SCALE;
+			  break;
+		  case 102:
+			  filterEnv.decay.time =  (uint16_t)value * (uint16_t)value;
+			  break;
+		  case 103:
+			  filterEnv.decay.level = (q31)value * CC_SCALE;
+			  break;
+		  case 104:
+			  filterEnv.decay2.time = (uint16_t)value * (uint16_t)value;
+			  break;
+		  case 105:
+			  filterEnv.sustain.level = (q31)value * CC_SCALE;
+			  break;
+		  case 106:
+			  filterEnv.release.time =  (uint16_t)value * (uint16_t)value;
+			  break;
+		  case 107:
+			  filterEnv.release.level = (q31)value * CC_SCALE;
+			  break;
+		  case 108:
+			  filterOn = (value > 0);
+			  break;
+
 		  default:
 			  break;
 	  }
@@ -306,13 +327,27 @@ void audioHook(q31 *data)
 {
   zero(outputDataL);
 
-  for(int i=0; i<NUM_VOICES; i++)
-    voices[i]->play(outputDataL);
+  q31 tmpVoice[AUDIO_BUFSIZE], envData[AUDIO_BUFSIZE];
+  for(int i=0; i<NUM_VOICES; i++){
+	zero(tmpVoice);
+	filterEnv.getOutput(envData, voices[i], filterLasts[i]);
+	filterLasts[i] = envData[AUDIO_BUFSIZE-1];
+
+	if(filterOn) voices[i]->play(tmpVoice);
+	else voices[i]->play(outputDataL);
+
+    uint8_t cut = envData[0] >> 23;
+	setBiquadCoeffs(bq[i*2], lp_coeffs[Q][cut]);
+    setBiquadCoeffs(bq[i*2+1], lp_coeffs[Q][cut]);
+
+    //process both biquad filters
+    biquadProcess(bq[i*2], tmpVoice, tmpVoice);
+    biquadProcess(bq[i*2+1], tmpVoice, tmpVoice);
+
+    sum(outputDataL, tmpVoice);
+  }
 
   for(int i=0; i<AUDIO_BUFSIZE; i++) outputDataL[i] >>= 7;
-  //process both biquad filters
-  biquadProcess(bq, outputDataL, outputDataL);
-  biquadProcess(bq2, outputDataL, outputDataL);
 
   delayPop(tap, scratch);
   copy(scratch2, outputDataL);
@@ -335,4 +370,3 @@ void loop()
     MIDI.read();
     __asm__ volatile("IDLE;");
 }
-

@@ -28,8 +28,8 @@ enum {
 
 class ak4558 {
 public:
-	ak4558() : _i2c(&Wire) { init(); }
-	ak4558(TwoWire *wire) : _i2c(wire) { init(); }
+	ak4558() : _i2c(&Wire) { }
+	ak4558(TwoWire *wire) : _i2c(wire) { }
 	~ak4558() {};
 
 	bool begin(uint8_t addr = AK4558_ADDR);
@@ -38,7 +38,6 @@ private:
 	TwoWire *_i2c;
 	uint8_t _addr;
 
-	void init();
 	void write8(uint8_t reg, uint8_t val);
 	uint8_t read8(uint8_t reg);
 

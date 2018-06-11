@@ -12,6 +12,18 @@ bool ak4558::begin(uint8_t addr) {
 	_addr = addr;
 	_i2c->begin();
 
+    //set register defaults
+    _powerManagement.reg = 0x01;
+    _PLLControl.reg = 0x04;
+    _DACTDM.reg = 0x00;
+    _control1.reg = 0x38;
+    _control2.reg = 0x10;
+    _modeControl.reg = 0x2A;
+    _filterSetting.reg = 0x29;
+    _HPF.reg = 0x07;
+    _LOUTVolume.reg = 0xFF;
+    _ROUTVolume.reg = 0xFF;
+
 	_powerManagement.bit.RSTN = 0;
 	write8(AK4558_POWER_CONTROL, _powerManagement.reg);
 
@@ -53,35 +65,21 @@ bool ak4558::begin(uint8_t addr) {
 	return true;
 }
 
-void ak4558::init() {
-	//set register defaults
-	_powerManagement.reg = 0x01;
-	_PLLControl.reg = 0x04;
-	_DACTDM.reg = 0x00;
-	_control1.reg = 0x38;
-	_control2.reg = 0x10;
-	_modeControl.reg = 0x2A;
-	_filterSetting.reg = 0x29;
-	_HPF.reg = 0x07;
-	_LOUTVolume.reg = 0xFF;
-	_ROUTVolume.reg = 0xFF;
-}
-
 void ak4558::write8(uint8_t reg, uint8_t val) {
 	_i2c->beginTransmission(_addr);
 	_i2c->write(reg);
 	_i2c->write(val);
-	delay(1);
+	//delay(1);
 	_i2c->endTransmission();
-	delay(1);
+	//delay(1);
 }
 
 uint8_t ak4558::read8(uint8_t reg) {
 	_i2c->beginTransmission(_addr);
 	_i2c->write(reg);
-	delay(1);
+	//delay(1);
 	_i2c->endTransmission();
-	delay(1);
+	//delay(1);
 	_i2c->requestFrom(_addr, 1);
 	return _i2c->read();
 }

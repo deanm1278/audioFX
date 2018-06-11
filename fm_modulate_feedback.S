@@ -184,7 +184,6 @@ __fm_modulate_feedback:
 		R1 = [I2++M2];
 		(R3:R2) = ((A1:0) = R7 * R1) (TFU);
 		R2 = PACK(R3.L, R2.H);
-		R2 <<= 1;
 
 		//get feedback parameter
 		R3 = [P2];

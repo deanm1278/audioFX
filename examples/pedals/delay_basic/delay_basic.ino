@@ -1,66 +1,66 @@
 #include "audioFX.h"
-#include "adau17x1.h"
-#include "Adafruit_ADS1015.h"
-#include "audioRingBuf.h"
+#include "pedalControls.h"
+#include "delay.h"
+#include "ak4558.h"
 
-#define DELAY_TIME_MAX 256
-#define ADC_SCALE_FACTOR 1048576
+using namespace FX;
 
-L2DATA q31 delayData[DELAY_TIME_MAX*AUDIO_BUFSIZE*2];
-AudioRingBuf<q31> buf(delayData, DELAY_TIME_MAX);
+#define ADC_SCALE 2097152
 
-static q31 delayLeft[AUDIO_BUFSIZE], delayRight[AUDIO_BUFSIZE],
-           feedbackLeft[AUDIO_BUFSIZE], feedbackRight[AUDIO_BUFSIZE];
+static RAMB q31 outputDataL[AUDIO_BUFSIZE], scratch[AUDIO_BUFSIZE], scratch2[AUDIO_BUFSIZE];
 
-Adafruit_ADS1015 ads;
-adau17x1 iface;
+#define DELAY_SIZE (AUDIO_BUFSIZE*256)
+static L2DATA q31 delayBuf[DELAY_SIZE];
+struct delayLine *line;
+struct delayTap *tap;
 
-volatile q31 feedback;
-volatile q31 mix;
-volatile uint32_t size = 0;
+uint16_t delayMixLast = 0, delayFeedbackLast = 0, delayTimeLast = 0;
+q31 delayMix = 0, delayFeedback = 0;
 
-void audioLoop(int32_t *data)
+ak4558 iface;
+
+void audioHook(q31 *data)
 {
-    if(buf.full()){
-        buf.peekSync(delayLeft, delayRight, DELAY_TIME_MAX - size);
-        buf.discard();
-    }
+	deinterleave(data, outputDataL, scratch);
 
-    for(int i=0; i<AUDIO_BUFSIZE; i++){
+	delayPop(tap, scratch);
+	copy(scratch2, outputDataL);
+	mix(scratch2, scratch, delayFeedback);
+	delayPush(line, scratch2);
 
-        feedbackLeft[i] = __builtin_bfin_mult_fr1x32x32(*data + delayLeft[i], feedback);
-        *data++ = __builtin_bfin_mult_fr1x32x32(*data, _F(.999) - mix) + __builtin_bfin_mult_fr1x32x32(delayLeft[i], mix);
+	mix(outputDataL, scratch, delayMix);
 
-
-        feedbackRight[i] = __builtin_bfin_mult_fr1x32x32(*data + delayRight[i], feedback);
-        *data++ = __builtin_bfin_mult_fr1x32x32(*data, _F(.999) - mix) + __builtin_bfin_mult_fr1x32x32(delayRight[i], mix);
-    }
-
-    buf.pushSync(feedbackLeft, feedbackRight);
+	interleave(data, outputDataL, outputDataL);
 }
 
 void setup(){
-    //Serial.begin(115200);
+	line = initDelayLine(delayBuf, DELAY_SIZE);
+	tap = initDelayTap(line, 0);
 
-    ads.setGain(GAIN_TWO);
-    ads.begin();
+	controls.begin();
 
-    iface.begin();
+	iface.begin();
 
-    fx.setHook(audioLoop);
-    fx.begin();
+	//begin fx processor
+	fx.begin();
+
+	//set the function to be called when a buffer is ready
+	fx.setHook(audioHook);
 }
 
 void loop(){
-    int16_t adc0, adc1, adc2;
-
-    adc0 = ads.readADC_SingleEnded(0);
-    size = constrain(map(adc0, 0, 2048, 1, 255), 1, 255);
-
-    adc1 = ads.readADC_SingleEnded(1);
-    feedback = adc1 * ADC_SCALE_FACTOR;
-
-    adc2 = ads.readADC_SingleEnded(2);
-    mix = adc2 * ADC_SCALE_FACTOR;
-
+	if(controls.state.adcPrimary[0] != delayMixLast){
+		delayMixLast = controls.state.adcPrimary[0];
+		delayMix = (q31)delayMixLast * ADC_SCALE;
+	}
+	if(controls.state.adcPrimary[1] != delayFeedbackLast){
+		delayFeedbackLast = controls.state.adcPrimary[1];
+		delayFeedback = (q31)delayFeedbackLast * ADC_SCALE;
+	}
+	if(controls.state.adcPrimary[2] != delayTimeLast){
+		delayTimeLast = controls.state.adcPrimary[2];
+		_delay_move(tap, (255 - (delayTimeLast>>2)) * AUDIO_BUFSIZE);
+	}
+	delay(17);
+	__asm__ volatile("IDLE;");
 }

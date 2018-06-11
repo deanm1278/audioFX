@@ -98,7 +98,9 @@ static inline void mix(q31 *dst, q31 *src, q31 coeff)
 		q31 vi = *src++;
 		q31 ret;
 		__asm__ volatile("%0 = %1 * %2;" : "=d"(ret) : "d"(vi), "d"(coeff));
-		*dst++ = *dst + ret;
+		q31 d = *dst;
+		__asm__ volatile("%0 = %1 + %2 (S)" : "=d"(ret) : "d"(d), "d"(ret));
+		*dst++ = ret;
 	}
 }
 
@@ -109,14 +111,19 @@ static inline void mix(q31 *dst, q31 *src, q31 *coeff)
 		q31 c = *coeff++;
 		q31 ret;
 		__asm__ volatile("%0 = %1 * %2;" : "=d"(ret) : "d"(vi), "d"(c));
-		*dst++ = *dst + ret;
+		q31 d = *dst;
+		__asm__ volatile("%0 = %1 + %2 (S)" : "=d"(ret) : "d"(d), "d"(ret));
+		*dst++ = ret;
 	}
 }
 
 static inline void sum(q31 *dst, q31 *src)
 {
 	for(int i=0; i<AUDIO_BUFSIZE; i++){
-		*dst++ = *dst + *src++;
+		q31 ret = *src++;
+		q31 d = *dst;
+		__asm__ volatile("%0 = %1 + %2 (S)" : "=d"(ret) : "d"(d), "d"(ret));
+		*dst++ = ret;
 	}
 }
 
@@ -133,6 +140,29 @@ static inline void limit24(q31 *dst)
 		if(*dst > 0x007FFFFF) *dst = 0x007FFFFF;
 		else if(*dst < -0x007FFFFF) *dst = -0x007FFFFF;
 		dst++;
+	}
+}
+
+static inline void pan(q31 *src, q31 *coeffs, q31 *left, q31 *right){
+
+	q31 mid = _F(.5);
+	for(int i=0; i<AUDIO_BUFSIZE; i++){
+		q31 c = *coeffs++;
+		c = _mult32x32(c, _F(.5));
+		q31 ret = *src++;
+		q31 d;
+
+		q31 v = *left;
+		__asm__ volatile("%0 = %1 + %2 (S)" : "=d"(d) : "d"(mid), "d"(c));
+		d = _mult32x32(ret, d);
+		__asm__ volatile("%0 = %1 + %2 (S)" : "=d"(v) : "d"(v), "d"(d));
+		*left++ = v;
+
+		v = *right;
+		__asm__ volatile("%0 = %1 - %2 (S)" : "=d"(d) : "d"(mid), "d"(c));
+		d = _mult32x32(ret, d);
+		__asm__ volatile("%0 = %1 + %2 (S)" : "=d"(v) : "d"(v), "d"(d));
+		*right++ = v;
 	}
 }
 

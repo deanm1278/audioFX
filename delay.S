@@ -389,7 +389,7 @@ __delay_modulate:
 		[I1++M1] = R0;
 
 		R2 = 0x80000000;
-		CC = R6 == R7;
+		CC = R7 <= R6;
 		IF CC R3 = R2;
 
 		R1 = 0 (X);

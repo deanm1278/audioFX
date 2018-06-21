@@ -5,6 +5,7 @@
 #include "lfo.h"
 #include "ak4558.h"
 #include "tilt.h"
+#include <Adafruit_NeoPixel.h>
 
 using namespace FX;
 
@@ -16,6 +17,9 @@ using namespace FX;
 #define FILTER_KNOB 5
 
 #define FILTER_GAIN_MAX 6.0
+
+#define READMS 17
+#define LIGHT_DURATION (200/READMS)
 
 #define ADC_SCALE 2097152
 
@@ -51,6 +55,8 @@ uint16_t delayMixLast = 0,
 
 q31 delayMix = 0, delayFeedback = 0, delayMult = 0, tapSpacing = 0;
 
+static int dtime = 0, counter = 0;
+
 float filterGain = 0;
 
 struct lfo *pans[NUM_TAPS];
@@ -68,6 +74,8 @@ struct tilt *filter;
 
 ak4558 iface;
 
+Adafruit_NeoPixel pixels = Adafruit_NeoPixel(2, PIN_NEOPIX, SPORT1, NEO_GRB + NEO_KHZ800);
+
 void audioHook(q31 *data)
 {
 	deinterleave(data, outputDataL, outputDataR);
@@ -83,7 +91,7 @@ void audioHook(q31 *data)
 	//scale feedback mix to compensate for filter gain
 	fbMix = _mult32x32(fbMix, 0x7FFFFFFF - (0x7FFFFFFF/2/512*abs((int)filterLast-512)));
 	for(int i=0; i<NUM_TAPS; i++){
-		if(taps[i]->roc > 0) delayModulate(taps[i], scratch);
+		if(taps[i]->roc > 0) _delay_move(taps[i], scratch, AUDIO_BUFSIZE);
 		else delayPop(taps[i], scratch);
 		if(i > 0) gain(scratch, scratch, taps[i]->coeff);
 
@@ -112,6 +120,9 @@ void setup(){
 
 	controls.begin();
 
+	pixels.begin();
+	pixels.setPixelColor(1, pixels.Color(50,0,0));
+
 	iface.begin();
 
 	//begin fx processor
@@ -124,14 +135,22 @@ void setup(){
 void updateDelayTimes(){
 	int timeMax = map(delayTimeLast, 0, 1023, 256, DELAY_SIZE);
 	for(int i=0; i<NUM_TAPS; i++){
-		if(i == 0) tapBase[i] = DELAY_SIZE - timeMax;
+		if(i == 0) tapBase[i] = timeMax;
 		else{
 			q31 point = tapRateMin[i] + _mult32x32((tapRateMax[i] - tapRateMin[i]), tapSpacing);
-			tapBase[i] = DELAY_SIZE - _mult32x32(timeMax, point);
+			tapBase[i] = _mult32x32(timeMax, point);
 		}
-		if(taps[i]->roc == 0) _delay_move(taps[i], tapBase[i]);
-		taps[i]->top = tapBase[i];
+		if(taps[i]->currentOffset > tapBase[i]){
+			taps[i]->bottom = tapBase[i];
+			taps[i]->direction = _F(-1.0);
+		}
+		else if(taps[i]->currentOffset < tapBase[i]){
+			taps[i]->top = tapBase[i];
+			taps[i]->direction = 0x7FFFFFFF;
+		}
+		taps[i]->roc = min(abs((int)taps[i]->currentOffset - (int)tapBase[i]) * 10, _F16(1.0));
 	}
+	dtime = (float)(tapBase[0])/AUDIO_SAMPLE_RATE*1000/READMS;
 }
 
 void loop(){
@@ -169,6 +188,19 @@ void loop(){
 		filterGain = FILTER_GAIN_MAX/512.0 * ((int)filterLast - 512);
 		setTiltGain(filter, filterGain);
 	}
-	delay(17);
+
+	//flash LED with delay time
+	if(counter%dtime==0){
+		pixels.setPixelColor(0, pixels.Color(50,0,0));
+		counter = 0;
+	}
+	else if (counter < LIGHT_DURATION)
+		pixels.setPixelColor(0, pixels.Color(50,0,0));
+	else
+		pixels.setPixelColor(0, pixels.Color(0,0,0));
+	counter++;
+
+	pixels.show();
+	delay(READMS);
 	__asm__ volatile("IDLE;");
 }

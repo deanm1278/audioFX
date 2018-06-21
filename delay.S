@@ -288,58 +288,86 @@ __delay_pop:
 	RTS;
 
 /*
- * void _delay_move(struct delayTap *tap, uint32_t newOffset);
+ * void _delay_move(struct delayTap *tap, q31 *buf, uint32_t num);
  */
 
 .align 2
 .global __delay_move;
 .type __delay_move, STT_FUNC;
 __delay_move:
-	[--SP] = ( R7:2, P5:3 );
+LINK 0
+	[--SP] = ( R7:3, P5:3 );
 
-    P4 = R0;
-    P3 = R0;
-    R5 = [P4]; //R5 = tap->parent
+    CALL __delay_setup;
 
-    //load up circular address
-    P4 = R5;
-    P4 += 4;
-    R7 = [P4]; //line.data
-    P4 += 4;
-    R6 = [P4]; //line.size
+	LC0 = R2; //num
 
-    B0 = R7; //base = line.data
+    P4 += 8;
+    R2 = [P4]; //bottom
+    [--SP] = R2;
 
-    R6 <<= 2;
-    L0 = R6; //length = line.size << 2
+	LOOP delayMoveLoop LC0;
+	LOOP_BEGIN delayMoveLoop;
+		R2 = R5 * R3; //roc * direction
 
-    P4 = R0;
-    P4 += 4;
-    R7 = [P4];
-    I0 = R7; //I0 = tap->dptr;
-    P4 += 4;
-    R6 = [P4]; //R6 = tap->currentOffset
-    P4 += 16;
-    R4 = [P4]; //R4 = err
+		//add to error
+		R4 = R4 + R2;
+		R2 = R4 >> 16; //integer portion
 
-    R7 = R1 - R6; //new offset - old offset
-    R2 = R7 << 2;
+		R0 = R2 - R6; //current integer portion - last integer portion
+		R6 = R2;
+		R0 <<= 2; //4 bytes per q31
+		R0 = -R0; //negate since we're moving away from buffer head
+		M0 = R0;
 
-	M0 = R2;
-	I0 += M0;
+		I0 += M0;
+		R1 = [I0]; //*dptr
+
+		//get previous sample
+		M0 = -4;
+		I0 += M0;
+		M0 = 8; //move back to where it was
+		R0 = [I0++M0]; //*nptr
+
+		//interpolate the delay line
+		R2 = R0 - R1;
+		R0 = R4 << 15; //convert err to q31
+		BITCLR (R0, 31); //clear sign bit
+		R0 = R0 * R2;
+		R0 = R1 + R0;
+		[I1++M1] = R0;
+
+		R2 = 0 (X);
+
+		CC = R7 <= R6;
+		IF CC R5 = R2;
+
+		R1 = [SP]; //get bottom
+		CC = R6 <= R1;
+		IF CC R5 = R2;
+
+		[SP] = R1;
+
+	LOOP_END delayMoveLoop;
+
+	SP+=4;
 
 	//save back variables
 	P3 += 4;
 	R1 = I0;
-	[P3] = R1;
-	P3 += 4; //tap->dptr
-	R1 = R6 + R7;
-	[P3] = R1;
-	P3 += 16; //tap->currentOffset
-	R1 <<= 16;
-	[P3] = R1; //tap->err
+	[P3] = R1; //tap->dptr
+	P3 += 4;
+	R6 = R4 >> 16;
+	[P3] = R6; //tap->currentOffset
+	P3 += 4;
+	[P3] = R5; //tap->roc
+	P3 += 8;
+	[P3] = R3; //tap->direction
+	P3 += 4;
+	[P3] = R4; //tap->err
 
-	( R7:2, P5:3 ) = [ SP ++ ];
+	( R7:3, P5:3 ) = [ SP ++ ];
+	UNLINK
 	RTS;
 
 
@@ -357,13 +385,18 @@ __delay_modulate:
     CALL __delay_setup;
 
 	LC0 = R2; //num
+
+    P4 += 8;
+    R2 = [P4]; //bottom
+    [--SP] = R2;
+
 	LOOP delayModulateLoop LC0;
 	LOOP_BEGIN delayModulateLoop;
 		R2 = R5 * R3; //roc * direction
 
 		//add to error
-		R4 = R4 + R2 (S);
-		R2 = R4 >>> 16; //integer portion
+		R4 = R4 + R2;
+		R2 = R4 >> 16; //integer portion
 
 		R0 = R2 - R6; //current integer portion - last integer portion
 		R6 = R2;
@@ -392,12 +425,16 @@ __delay_modulate:
 		CC = R7 <= R6;
 		IF CC R3 = R2;
 
-		R1 = 0 (X);
+		R1 = [SP]; //get bottom
 		R2 = 0x7FFFFFFF;
-		CC = R6 == R1;
+		CC = R6 <= R1;
 		IF CC R3 = R2;
 
+		[SP] = R1;
+
 	LOOP_END delayModulateLoop;
+
+	SP+=4;
 
 	//save back variables
 	P3 += 4;

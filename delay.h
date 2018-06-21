@@ -15,6 +15,7 @@ struct delayTap {
 	q31 direction; // +1 or -1
 	q16 err;
 	q31 coeff;
+	uint32_t bottom; //min value currentOffset can take
 };
 
 struct delayLine{
@@ -63,7 +64,7 @@ extern void _delay_pitch_shift_down(struct delayTap *tap, q31 *buf, uint32_t num
 extern void _delay_pitch_shift_up(struct delayTap *tap, q31 *buf, uint32_t num);
 extern void _fir(struct fir *f, q31 *buf, uint32_t num);
 extern void _biquad(struct biquad *b, q31 *buf, uint32_t num);
-extern void _delay_move(struct delayTap *tap, uint32_t newOffset);
+extern void _delay_move(struct delayTap *tap, q31 *buf, uint32_t num);
 
 };
 
@@ -84,6 +85,8 @@ static inline struct delayTap *initDelayTap(struct delayLine *line, int offset)
     tap->dptr = line->data + line->size - offset;
     tap->currentOffset = offset;
     tap->err = offset << 16;
+    tap->top = offset;
+    tap->bottom = 0;
 
     return tap;
 }
@@ -93,6 +96,7 @@ static inline struct delayTap *initDelayTap(struct delayLine *line, q16 roc, uin
 	tap->roc = roc;
 	tap->top = top;
 	tap->direction = 0x7FFFFFFF;
+	tap->bottom = 0;
 
 	return tap;
 }

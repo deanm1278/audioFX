@@ -166,6 +166,18 @@ static inline void pan(q31 *src, q31 *coeffs, q31 *left, q31 *right){
 	}
 }
 
+static inline void wetdry(q31 *dst, q31 *src, q31 depth){
+
+	q31 dstMul = 0x7FFFFFFF - depth;
+	for(int i=0; i<AUDIO_BUFSIZE; i++){
+		q31 d = _mult32x32(*dst, dstMul);
+		q31 s = _mult32x32(*src++, depth);
+
+		__asm__ volatile("%0 = %1 + %2 (S)" : "=d"(d) : "d"(s), "d"(d));
+		*dst++ = d;
+	}
+}
+
 class AudioFX : public I2S
 {
 public:

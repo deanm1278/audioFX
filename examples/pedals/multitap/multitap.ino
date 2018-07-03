@@ -1,7 +1,6 @@
-#include <Arduino.h>
 #include "audioFX.h"
 #include "pedalControls.h"
-#include "delay.h"
+#include "audioDelay.h"
 #include "lfo.h"
 #include "ak4558.h"
 #include "tilt.h"
@@ -115,6 +114,8 @@ static q16 rocMax[NUM_TAPS] = { _F16(.014), _F16(.010), _F16(.018), _F16(.015) }
 
 struct tilt *filter;
 
+bool active = false, onOffLast = false;
+
 ak4558 iface;
 
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(2, PIN_NEOPIX, SPORT1, NEO_GRB + NEO_KHZ800);
@@ -209,7 +210,6 @@ void setup(){
 	controls.begin();
 
 	pixels.begin();
-	pixels.setPixelColor(1, pixels.Color(50,0,0));
 
 	iface.begin();
 
@@ -320,6 +320,14 @@ void loop(){
 		apMixLast = controls.state.adcAlt[AP_MIX_KNOB];
 		apMix = (q31)apMixLast * ADC_SCALE;
 	}
+
+  //monitor on-off state
+  if(controls.state.btns.bit.footswitch1 != onOffLast && !onOffLast){
+    active = !active;
+    pixels.setPixelColor(1, pixels.Color(50*active,0,0));
+  }
+  
+  onOffLast = controls.state.btns.bit.footswitch1;
 
 	//flash LED with delay time
 	uint8_t blue = controls.state.btns.bit.alt * 50;

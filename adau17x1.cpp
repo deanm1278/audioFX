@@ -13,7 +13,7 @@
 #define LOAD_FROM_SIGMA_STUDIO
 
 #ifdef LOAD_FROM_SIGMA_STUDIO
-#include "export_IC_1.h"
+#include "SigmaStudio/export_IC_1.h"
 static uint8_t _global_addr;
 #endif
 

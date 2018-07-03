@@ -452,6 +452,8 @@ __delay_modulate:
 	UNLINK
 	RTS;
 
+#if 0
+	//TODO: do a better pitch shift algo
 .extern _pitch_shift_table;
 .type _pitch_shift_table,STT_OBJECT;
 
@@ -618,3 +620,4 @@ pitch_shift_up_cont:
     ( R7:3, P5:2 ) = [ SP ++ ];
     UNLINK
     RTS;
+#endif

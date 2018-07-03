@@ -11,13 +11,10 @@
 #include <Arduino.h>
 #include "audioFX_config.h"
 
-#define _F28(x) ((int) ((x)*( (1<<28) )))
 #define _F28_INTEGER_MASK (0xE0000000)
 #define _F28_TO_F31(x) ((x) << 3)
 
 #define _F16_TO_F28(x) ((x) << 12)
-
-typedef int32_t q28;
 
 typedef q31 __sin_q31(q31 x);
 static __sin_q31* _sin_q31 = (__sin_q31*)0x0401cca4;

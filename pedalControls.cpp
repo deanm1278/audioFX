@@ -50,4 +50,6 @@ bool PedalControls::begin(){
 	return true;
 }
 
+#ifdef SPI_CONTROLS
 PedalControls controls(&SPI_CONTROLS, PIN_CONTROLS_SS, PIN_CONTROLS_START);
+#endif

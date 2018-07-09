@@ -44,6 +44,11 @@
 #define ADS114S0x_DEV_ID_ADS114S08 0x4
 #define ADS114S0x_DEV_ID_ADS114S06 0x5
 
+enum {
+	ADS114S0X_CONVERSION_MODE_CONTINUOUS = 0,
+	ADS114S0X_CONVERSION_MODE_SINGLE,
+};
+
 class ads114s0x {
 public:
     ads114s0x(int csPin, int rdyPin=-1, SPIClass *spi=&SPI) : _cs(csPin), _spi(spi), _rdy(rdyPin) {
@@ -56,8 +61,12 @@ public:
     void writeReg(uint8_t reg, uint8_t value);
     uint8_t readReg(uint8_t reg);
     void sendCommand(uint8_t cmd);
-    int readData();
-
+    int16_t readChannel(int ch=-1);
+    void setConversionMode(uint8_t mode);
+    void setChannel(uint8_t ch);
+    int readData(bool byCommand = false, bool poll = false);
+    void start();
+    
 private:
     int _cs, _rdy;
     SPIClass *_spi;
@@ -206,3 +215,4 @@ private:
 
 
 #endif /* AUDIOFX_ADS114S0X_H_ */
+

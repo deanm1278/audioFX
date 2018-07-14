@@ -65,17 +65,14 @@ __fm_modulate_output:
 	L3 = 0;
 	M3 = 4;
 
-	[--SP] = ( R7:5, P5:4 );
+	[--SP] = ( R7:5, P5:3 );
 	[--SP] = P1;
 	[--SP] = P0;
 
 	P4.H = __fm_sine;
 	P4.L = __fm_sine;
 
-	I1 = R1; //buf
-	B1 = R1;
-	L1 = 0;
-	M1 = 4;
+	P3 = R1; //buf
 
 	I2 = R2; //cfreq
 	B2 = R2;
@@ -98,15 +95,11 @@ __fm_modulate_output:
 
 		R2 = PACK(R3.L, R2.H) || R3 = [I0++M0];
 
-		R2 = R2 + R3; //add modulators
-
 		R2 = R2 + R0; //add previous error
 		R0 = R2 & R5;
 
-		//pos0 = (q31 * mul) >> 42
-		R3 = FM_LOOKUP_MUL;
-		R4 = R2 * R3; // (this automatically shifts 31)
-		R4 >>= 11;
+		R2 = R2 + R3; //add modulators
+		R4 = R2 >> 21;
 
 		//add to plast, plast % 1024
         R4 = R4 + R6;
@@ -114,6 +107,7 @@ __fm_modulate_output:
 		R3 = R4 & R3;
 		R6 = R3; //save plast
 
+		//TODO: this shift can also be removed by compensating for it beforehand
 		R3 <<= 2; //each sample is 4 bytes
 		R4 = P4;
 		R3 = R3 + R4;
@@ -121,11 +115,12 @@ __fm_modulate_output:
 		R4 = [P5]; //val = y[pos0]
 
 		R3 = [I3++M3];
-		R4 = R4 * R3 || R3 = [I1];
+		R4 = R4 * R3 || R3 = [P3];
 
 		//add to output
 		R4 = R4 + R3 (S);
-		[I1++M1] = R4;
+		[P3] = R4;
+		P3 += 4;
 
 	LOOP_END fmOutputLoop;
 
@@ -134,7 +129,7 @@ __fm_modulate_output:
 
 	P0 = [SP++];
 	P1 = [SP++];
-	( R7:5, P5:4 ) = [ SP ++ ];
+	( R7:5, P5:3 ) = [ SP ++ ];
 	R3 = [SP++];
 	R4 = [SP++];
 	RTS;
@@ -191,17 +186,13 @@ __fm_modulate:
 		(R3:R2) = ((A1:0) = R7 * R1) (TFU);
 		R2 = PACK(R3.L, R2.H) || R3 = [I0++M0];
 
-		R3 <<= 1;
+		R2 = R2 + R0;
+		R1 = FM_LOOKUP_MOD;
+		R0 = R2 & R1; //add some error bits and save the new error
+
 		R2 = R2 + R3;
 
-		R2 = R2 + R0;
-		R3 = FM_LOOKUP_MOD;
-		R0 = R2 & R3; //add some error bits and save the new error
-
-		//pos0 = (q31 * mul) >> 42
-		R3 = FM_LOOKUP_MUL;
-		R4 = R2 * R3; // (this automatically shifts 31)
-		R4 >>= 11;
+		R4 = R2 >> 21;
 
 		//add to plast, plast % 1024
         R4 = R4 + R6;
@@ -224,6 +215,7 @@ __fm_modulate:
 		R4 = [P5]; //val = y[pos0]
 
 		R4 = R4 - R3 (S); //delta = current - last
+		//R4 <<= 2; TODO: add this
 
 		//multiply delta by volume
 		R3 = [I3++M3];

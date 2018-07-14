@@ -55,10 +55,7 @@ __lfo_q31:
 		R3 = FM_LOOKUP_MOD;
 		R0 = R2 & R3; //add some error bits and save the new error
 
-		//pos0 = (q31 * mul) >> 42
-		R3 = FM_LOOKUP_MUL;
-		R4 = R2 * R3; // (this automatically shifts 31)
-		R4 >>= 11;
+		R4 = R2 >> 21;
 
 		//add to plast, plast % 1024
 		R4 = R4 + R6;
@@ -146,10 +143,7 @@ __lfo_q16:
 		R3 = FM_LOOKUP_MOD;
 		R0 = R2 & R3; //add some error bits and save the new error
 
-		//pos0 = (q31 * mul) >> 42
-		R3 = FM_LOOKUP_MUL;
-		R4 = R2 * R3; // (this automatically shifts 31)
-		R4 >>= 11;
+		R4 = R2 >> 21;
 
 		//add to plast, plast % 1024
 		R4 = R4 + R6;

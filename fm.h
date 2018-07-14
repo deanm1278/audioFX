@@ -34,6 +34,15 @@ class Voice;
 class Operator;
 class Algorithm;
 
+extern "C" {
+    struct _operator {
+        q31 *current;
+        q16 *cfreq;
+        q31 *mod;
+        q31 *vol;
+    };
+};
+
 /************* BASE MODULATOR CLASS **************/
 template<class T> class Modulator {
 public:

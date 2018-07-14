@@ -1,13 +1,13 @@
 /*
  * A Simple FM sketch
  */
-#include "adau17x1.h"
+#include "ak4558.h"
 #include "audioFX.h"
 #include "fm.h"
 
 using namespace FX;
 
-adau17x1 iface;
+ak4558 iface;
 
 //create a 3 operator algorithm
 Operator op1(0), op2(1), op3(2);
@@ -42,7 +42,7 @@ void audioHook(q31 *data)
 {
   v1.play(outL);
   //the output is 24 bit
-  for(int i=0; i<AUDIO_BUFSIZE; i++) outL[i] >>= 8;
+  for(int i=0; i<AUDIO_BUFSIZE; i++) outL[i] >>= 7;
 
   interleave(data, outL, outL);
 }
@@ -58,6 +58,7 @@ void setup(){
      *      output
      */
     op2.isOutput = true; // op2 is carrier frequency
+
     op2.mods[0] = &op3; // op3 modulates op2
     op2.mods[1] = &op1; // op1 modulates op2
 
@@ -126,4 +127,3 @@ void loop(){
     }
     delay(10);
 }
-

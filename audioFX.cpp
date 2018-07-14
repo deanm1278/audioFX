@@ -11,7 +11,7 @@
 
 #define FS (AUDIO_SAMPLE_RATE*2) //around 48khz
 #define BCLK (64 * FS)
-#define WLEN 24
+#define WLEN 32
 
 using namespace FX;
 

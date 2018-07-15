@@ -88,8 +88,22 @@ static inline void gain(q31 *dst, q31 *src, q31 *g){
 	}
 }
 
+static inline void gain(q15 *dst, q15 *src, q15 g){
+	for(int i=0; i<AUDIO_BUFSIZE; i++){
+		*dst++ = __builtin_bfin_multr_fr1x16(*src++, g);
+	}
+}
+
 static inline void zero(q31 *dst){
 	for(int i=0; i<AUDIO_BUFSIZE; i++) *dst++ = 0;
+}
+
+static inline void zero(q15 *dst){
+	for(int i=0; i<AUDIO_BUFSIZE; i++) *dst++ = 0;
+}
+
+static inline void convertAdd(q31 *dst, q15 *src){
+	for(int i=0; i<AUDIO_BUFSIZE; i++) *dst++ += *src++ << 16;
 }
 
 static inline void mix(q31 *dst, q31 *src, q31 coeff)
@@ -127,7 +141,23 @@ static inline void sum(q31 *dst, q31 *src)
 	}
 }
 
+static inline void sum(q15 *dst, q15 *src)
+{
+	for(int i=0; i<AUDIO_BUFSIZE; i++){
+		*dst++ = __builtin_bfin_add_fr1x16(*src++, *dst);
+	}
+}
+
+
+
 static inline void copy(q31 *dst, q31 *src)
+{
+	for(int i=0; i<AUDIO_BUFSIZE; i++){
+		*dst++ = *src++;
+	}
+}
+
+static inline void copy(q15 *dst, q15 *src)
 {
 	for(int i=0; i<AUDIO_BUFSIZE; i++){
 		*dst++ = *src++;

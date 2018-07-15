@@ -46,42 +46,45 @@ __mult_q16_single:
 
 /* This is used if the modulator is an output
  *
- * int _fm_modulate_output(int lastPos, q31 *buf, q16 *cFreq, q31 *mod, q31 *vol);
+ * void _fm_modulate(_operator *op, q15 *buf);
  */
 .align 2
-.global __fm_modulate_output;
-.type __fm_modulate_output, STT_FUNC;
-__fm_modulate_output:
-	[--SP] = R4;
-	[--SP] = R3;
-	R4 = [SP+20]; //mod_buf
-	I0 = R4;
-	B0 = R4;
-	L0 = 0;
-	M0 = 4;
-	R3 = [SP+24]; //volume_buf
-	I3 = R3;
-	B3 = R3;
-	L3 = 0;
-	M3 = 4;
+.global __fm_modulate;
+.type __fm_modulate, STT_FUNC;
+__fm_modulate:
+	[--SP] = ( R7:2, P5:3 );
 
-	[--SP] = ( R7:5, P5:3 );
-	[--SP] = P1;
-	[--SP] = P0;
-
-	P4.H = __fm_sine;
-	P4.L = __fm_sine;
-
-	P3 = R1; //buf
-
-	I2 = R2; //cfreq
-	B2 = R2;
+	P5 = R0;
+	P4 = R0; //_operator
+	R7 = [P4]; //_operator->current
+	I1 = R7;
+	P4 += 4;
+	R7 = [P4]; //_operator->cfreq
+	I2 = R7; //cfreq
+	B2 = R7;
 	L2 = 0;
 	M2 = 4;
+	P4 += 4;
+	R7 = [P4]; //_operator->mod
+	I0 = R7;
+	B0 = R7;
+	L0 = 0;
+	M0 = 2;
+	P4 += 4;
+	R7 = [P4]; //_operator->volume
+	I3 = R7;
+	B3 = R7;
+	L3 = 0;
+	M3 = 2;
+	P4 += 4;
+	R0 = [P4]; //_operator->err
 
-	R4 = 0x3FF;
-	R6 = R0 & R4;
-	R0 >>= 10;
+	R7.H = __fm_sine;
+	R7.L = __fm_sine;
+	B1 = R7;
+	L1 = 4096; //sizeof(__fm_sine)
+
+	P3 = R1; //buf
 
 	R7 = FM_LOOKUP_INC;
 
@@ -97,142 +100,41 @@ __fm_modulate_output:
 
 		R2 = R2 + R0; //add previous error
 		R0 = R2 & R5;
+		R2 >>= 20; //shift out the error
+		R2 <<= 1;
 
-		R2 = R2 + R3; //add modulators
-		R4 = R2 >> 21;
+		M1 = R2;
+		I1 += M1;
 
-		//add to plast, plast % 1024
-        R4 = R4 + R6;
-		R3 = 0x3FF;
-		R3 = R4 & R3;
-		R6 = R3; //save plast
+		R3 = R3.L (X); //sign extend mod
+		R3 >>>= 2;
 
-		//TODO: this shift can also be removed by compensating for it beforehand
-		R3 <<= 2; //each sample is 4 bytes
-		R4 = P4;
-		R3 = R3 + R4;
-		P5 = R3;
-		R4 = [P5]; //val = y[pos0]
+		//get sign bit
+		R6 = 0x80000000;
+		R6 = R6 & R3;
+		R3 = R3 << 20;
+		BITCLR(R3, 31); //clear sign bit
+		R4 = R3 | R6; //add in old sign bit
+		R4 >>>= 19; // % N
 
-		R3 = [I3++M3];
-		R4 = R4 * R3 || R3 = [P3];
+		M1 = R4;
+		I1 += M1;
+		R4 = [I1];
+		I1 -= M1 || R3 = [I3++M3];
+		R4.L = R4.L * R3.L || R3 = [P3];
 
 		//add to output
-		R4 = R4 + R3 (S);
-		[P3] = R4;
-		P3 += 4;
+		R4.L = R4.L + R3.L (S);
+
+		W[P3] = R4.L;
+		P3 += 2;
 
 	LOOP_END fmOutputLoop;
 
-	R0 <<= 10;
-	R0 = R0 | R6; //return plast and error
+	R7 = I1;
+	[P5] = R7; //_operator->current
+	P5 += 16;
+	[P5] = R0; //_operator->err
 
-	P0 = [SP++];
-	P1 = [SP++];
-	( R7:5, P5:3 ) = [ SP ++ ];
-	R3 = [SP++];
-	R4 = [SP++];
-	RTS;
-
-/* This is used if the operator is not an output
- *
- * int _fm_modulate(int lastPos, q31 *buf, q16 *cFreq, q31 *mod, q31 *vol);
- */
-.align 2
-.global __fm_modulate;
-.type __fm_modulate, STT_FUNC;
-__fm_modulate:
-	[--SP] = R4;
-	[--SP] = P3;
-	R4 = [SP+20]; //mod_buf
-	I0 = R4;
-	B0 = R4;
-	L0 = 0;
-	M0 = 4;
-	R3 = [SP+24]; //volume_buf
-	I3 = R3;
-	B3 = R3;
-	L3 = 0;
-	M3 = 4;
-
-	[--SP] = ( R7:5, P5:4 );
-	[--SP] = P1;
-	[--SP] = P0;
-
-	P4.H = __fm_sine;
-	P4.L = __fm_sine;
-
-	I1 = R1; //buf
-	B1 = R1;
-	L1 = 0;
-	M1 = 4;
-
-	I2 = R2; //cfreq
-	B2 = R2;
-	L2 = 0;
-	M2 = 4;
-
-	R4 = 0x3FF;
-	R6 = R0 & R4;
-	R0 >>= 10;
-
-	R7 = FM_LOOKUP_INC;
-
-	R4 = AUDIO_BUFSIZE;
-	LC0 = R4;
-	LOOP fmLoop LC0;
-	LOOP_BEGIN fmLoop;
-		R1 = [I2++M2];
-		(R3:R2) = ((A1:0) = R7 * R1) (TFU);
-		R2 = PACK(R3.L, R2.H) || R3 = [I0++M0];
-
-		R2 = R2 + R0;
-		R1 = FM_LOOKUP_MOD;
-		R0 = R2 & R1; //add some error bits and save the new error
-
-		R2 = R2 + R3;
-
-		R4 = R2 >> 21;
-
-		//add to plast, plast % 1024
-        R4 = R4 + R6;
-        R3 = 0x3FF;
-        R4 = R4 & R3;
-
-		//get old plast
-		R3 = R6 << 2; //each is 4 bytes long
-		R5 = P4;
-		R3 = R3 + R5;
-		P5 = R3;
-		R3 = [P5]; //R3 = last value
-
-		R6 = R4; //save plast
-
-		R4 <<= 2; //each sample is 4 bytes
-		R5 = P4;
-		R4 = R4 + R5;
-		P5 = R4;
-		R4 = [P5]; //val = y[pos0]
-
-		R4 = R4 - R3 (S); //delta = current - last
-		//R4 <<= 2; TODO: add this
-
-		//multiply delta by volume
-		R3 = [I3++M3];
-		R4 = R4 * R3 || R3 = [I1];
-
-		//add delta to output
-		R4 = R4 + R3 (S);
-		[I1++M1] = R4;
-
-	LOOP_END fmLoop;
-
-	R0 <<= 10;
-	R0 = R0 | R6; //return plast and error
-
-	P0 = [SP++];
-	P1 = [SP++];
-	( R7:5, P5:4 ) = [ SP ++ ];
-	R3 = [SP++];
-	R4 = [SP++];
+	( R7:2, P5:3 ) = [ SP ++ ];
 	RTS;

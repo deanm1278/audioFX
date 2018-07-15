@@ -34,13 +34,20 @@ class Voice;
 class Operator;
 class Algorithm;
 
+extern q15 _fm_sine[];
+
 extern "C" {
     struct _operator {
-        q31 *current;
+        q15 *current;
         q16 *cfreq;
-        q31 *mod;
-        q31 *vol;
+        q15 *mod;
+        q15 *vol;
+        q31 err;
+        q15 lastFeedback;
+        q15 lastVolume;
     };
+    extern void _fm_modulate(_operator *op, q15 *buf);
+    extern void _fm_modulate_feedback(_operator *op, q15 *buf, q15 feedbackLevel);
 };
 
 /************* BASE MODULATOR CLASS **************/
@@ -57,6 +64,7 @@ public:
 };
 template class Modulator<q31>;
 template class Modulator<q16>;
+template class Modulator<q15>;
 
 /************* FIXED FREQUENCY CLASS **************/
 class FixedFrequency : public Modulator<q16> {
@@ -71,7 +79,7 @@ public:
     Envelope() { setDefaults(); }
     ~Envelope() {}
 
-    void getOutput(T *buf, Voice *voice, q31 last);
+    void getOutput(T *buf, Voice *voice, T last);
 
     void setDefaults();
 
@@ -88,11 +96,12 @@ public:
 private:
 
 };
-template class Envelope<q31>;
+template class Envelope<q15>;
 template class Envelope<q16>;
+template class Envelope<q31>;
 
 /************* OPERATOR CLASS **************/
-class Operator : public Modulator<q31> {
+class Operator : public Modulator<q15> {
 public:
     Operator(int id);
     ~Operator() {}
@@ -101,23 +110,23 @@ public:
      * requires the current status of any envelopes.
      * If a circular reference is encountered, the previous calculation is used
      */
-    void getOutput(q31 *buf, Voice *voice);
+    void getOutput(q15 *buf, Voice *voice);
     void setCarrier(Modulator<q16> *mod=NULL);
 
     Operator *mods[OP_MAX_INPUTS];
 
     Modulator<q16> *carrier;
 
-    Envelope<q31> volume;
+    Envelope<q15> volume;
 
     bool active;
     bool isOutput;
 
-    q31 velSense;
+    q15 velSense;
 
-    q31 feedbackLevel;
+    q15 feedbackLevel;
 
-    q31 *precalculated;
+    q15 *precalculated;
     bool saved;
 
     friend class Algorithm;
@@ -193,11 +202,17 @@ public:
     	queueStop = false;
     	interruptable = true;
     	lastLFO = 0;
-    	velocity = _F(.999);
+    	velocity = _F15(.999);
     	cfreq = NULL;
-    	memset(lastPos, 0, sizeof(int)*FM_MAX_OPERATORS);
-    	memset(lastFeedback, 0, sizeof(q31)*FM_MAX_OPERATORS);
-    	memset(lastVolume, 0, sizeof(q31)*FM_MAX_OPERATORS);
+        for(int i=0; i<FM_MAX_OPERATORS;i++){
+            _operator *op = &_ops[i];
+            op->current = _fm_sine;
+            op->cfreq = NULL;
+            op->mod = NULL;
+            op->vol = NULL;
+            op->lastFeedback = 0;
+            op->lastVolume = 0;
+        }
     }
     ~Voice() {}
 
@@ -211,8 +226,8 @@ public:
     	if(!state && !active) return;
         if(state){
             active = true;
-            memset(lastPos, 0, sizeof(q31)*FM_MAX_OPERATORS);
-            //memset(lastFeedback, 0, sizeof(q31)*FM_MAX_OPERATORS);
+            for(int i=0; i<FM_MAX_OPERATORS;i++)
+                _ops[i].current = _fm_sine;
             lastLFO = 0;
             ms = 2;
         }
@@ -226,7 +241,7 @@ public:
 
     volatile bool active;
     volatile bool queueStop;
-    q31 velocity;
+    q15 velocity;
     uint32_t ms;
     q31 gain;
     bool hold;
@@ -235,9 +250,8 @@ public:
     friend class Operator;
 
 protected:
-    q31 lastFeedback[FM_MAX_OPERATORS];
-    int lastPos[FM_MAX_OPERATORS];
-    q31 lastVolume[FM_MAX_OPERATORS];
+    _operator _ops[FM_MAX_OPERATORS];
+
     //TODO: this currently only allows one lfo. Fix if necessary.
     int lastLFO;
     q16 *cfreq;

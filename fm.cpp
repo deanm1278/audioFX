@@ -16,7 +16,7 @@ Operator::Operator(int id) : volume(), id(id) {
     carrier = NULL;
     feedbackLevel = 0;
     saved = false;
-    velSense = _F(.999);
+    velSense = _F15(.999);
 
     for(int i=0; i<OP_MAX_INPUTS; i++)
         mods[i] = NULL;
@@ -32,13 +32,13 @@ void Operator::setCarrier(Modulator<q16> *mod)
 }
 
 // calculate the output and add it to buf
-void Operator::getOutput(q31 *buf, Voice *voice) {
+void Operator::getOutput(q15 *buf, Voice *voice) {
 
     if(!calculated){
         calculated = true;
 
     	//calculate modulators
-    	q31 mod_buf[AUDIO_BUFSIZE];
+    	q15 mod_buf[AUDIO_BUFSIZE];
     	zero(mod_buf);
 
         for(int ix=0; ix<OP_MAX_INPUTS; ix++){
@@ -47,33 +47,29 @@ void Operator::getOutput(q31 *buf, Voice *voice) {
         }
 
         //calculate envelope
-        q31 volume_buf[AUDIO_BUFSIZE];
-        volume.getOutput(volume_buf, voice, voice->lastVolume[id]);
+        q15 volume_buf[AUDIO_BUFSIZE];
+        volume.getOutput(volume_buf, voice, voice->_ops[id].lastVolume);
         if(voice->active)
-        	voice->lastVolume[id] = volume_buf[AUDIO_BUFSIZE - 1]; //save the last volume for release
+        	voice->_ops[id].lastVolume = volume_buf[AUDIO_BUFSIZE - 1]; //save the last volume for release
 
 		//velocity scaling
-        q31 vmod = 0x7FFFFFFF - _mult32x32((0x7FFFFFFF - voice->velocity), velSense);
+        q15 vmod = 0x7FFF - __builtin_bfin_multr_fr1x16((0x7FFF - voice->velocity), velSense);
         gain(volume_buf, volume_buf, vmod);
 
 		//TODO: keyboard/range scaling
 
-        q28 t = voice->getT();
         q16 cfreq[AUDIO_BUFSIZE];
         carrier->getOutput(cfreq);
+		voice->_ops[id].cfreq = cfreq;
+		voice->_ops[id].mod = mod_buf;
+		voice->_ops[id].vol = volume_buf;
 
-        if(isOutput){
-            if(feedbackLevel == 0)
-            	voice->lastPos[id] = _fm_modulate_output(voice->lastPos[id], buf, cfreq, mod_buf, volume_buf);
-            else
-            	voice->lastPos[id] = _fm_modulate_feedback_output(voice->lastPos[id], buf, cfreq, volume_buf, feedbackLevel, &voice->lastFeedback[id]);
-        }
-        else{
-            if(feedbackLevel == 0)
-            	voice->lastPos[id] = _fm_modulate(voice->lastPos[id], buf, cfreq, mod_buf, volume_buf);
-            else
-            	voice->lastPos[id] = _fm_modulate_feedback(voice->lastPos[id], buf, cfreq, volume_buf, feedbackLevel, &voice->lastFeedback[id]);
-        }
+		if(feedbackLevel == 0){
+			_fm_modulate(&voice->_ops[id], buf);
+		}
+		else{
+			_fm_modulate_feedback(&voice->_ops[id], buf, feedbackLevel);
+		}
 
 		//look for another place this is used and save output if necessary
 		for(int i=0; i<voice->algorithm->numOps; i++){
@@ -91,7 +87,7 @@ void Operator::getOutput(q31 *buf, Voice *voice) {
 		}
 
 		if(saved){
-			precalculated = (q31 *)malloc(AUDIO_BUFSIZE*sizeof(q31));
+			precalculated = (q15 *)malloc(AUDIO_BUFSIZE*sizeof(q15));
 			copy(precalculated, buf);
 		}
     }
@@ -109,9 +105,13 @@ void Algorithm::getOutput(q31 *buf, Voice *voice) {
     }
 
 	//TODO: auto-determine outputs based on routing
+	q15 tmpbuf[AUDIO_BUFSIZE];
     for(int i=0; i<numOps; i++){
-        if(ops[i]->isOutput && ops[i]->active)
-            ops[i]->getOutput(buf, voice);
+		zero(tmpbuf);
+        if(ops[i]->isOutput && ops[i]->active){
+            ops[i]->getOutput(tmpbuf, voice);
+			convertAdd(buf, tmpbuf);
+		}
     }
 
 	//free any saved outputs
@@ -139,8 +139,17 @@ void Envelope<q16>::setDefaults(){
     release = { _F16(0), 0 };
 }
 
+template <>
+void Envelope<q15>::setDefaults(){
+    attack  = { _F15(0), 0 };
+    decay   = { _F15(0), 0 };
+    decay2   = { _F15(0), 0 };
+    sustain = { _F15(0), 0 };
+    release = { _F15(0), 0 };
+}
+
 template <class T>
-void Envelope<T>::getOutput(T *buf, Voice *voice, q31 last){
+void Envelope<T>::getOutput(T *buf, Voice *voice, T last){
 
 	//for now calculate the envelope twice per buffer
 	T *ptr = buf;

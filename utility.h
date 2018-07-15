@@ -25,10 +25,6 @@ static __cos_q31* _cos_q31 = (__cos_q31*)0x04014e40;
 extern "C" {
 extern void _mult_q16(q16 *buf, q16 num);
 extern q16 _mult_q16_single(q16 a, q16 b);
-extern int _fm_modulate(int lastPos, q31 *buf, q16 *cFreq, q31 *mod, q31 *vol);
-extern int _fm_modulate_output(int lastPos, q31 *buf, q16 *cFreq, q31 *mod, q31 *vol);
-extern int _fm_modulate_feedback(int lastPos, q31 *buf, q16 *cFreq, q31 *volume_buf, q31 feedbackLevel, q31 *lastFeedback);
-extern int _fm_modulate_feedback_output(int lastPos, q31 *buf, q16 *cFreq, q31 *volume_buf, q31 feedbackLevel, q31 *lastFeedback);
 extern int _lfo_q31(int lastPos, q31 *buf, q16 rate, q31 depth);
 extern int _lfo_q16(int lastPos, q16 *buf, q16 rate, q16 depth);
 };

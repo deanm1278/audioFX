@@ -90,7 +90,19 @@ static inline void gain(q31 *dst, q31 *src, q31 *g){
 
 static inline void gain(q15 *dst, q15 *src, q15 g){
 	for(int i=0; i<AUDIO_BUFSIZE; i++){
-		*dst++ = __builtin_bfin_multr_fr1x16(*src++, g);
+		*dst++ = __builtin_bfin_mult_fr1x16(*src++, g);
+	}
+}
+
+static inline void gain(q15 *dst, q15 *src, q15 *g){
+	for(int i=0; i<AUDIO_BUFSIZE; i++){
+		*dst++ = __builtin_bfin_mult_fr1x16(*src++, *g++);
+	}
+}
+
+static inline void offset(q15 *dst, q15 *src, q15 o){
+	for(int i=0; i<AUDIO_BUFSIZE; i++){
+		*dst++ = __builtin_bfin_add_fr1x16(*src++, o);
 	}
 }
 

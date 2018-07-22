@@ -114,6 +114,10 @@ static inline void zero(q15 *dst){
 	for(int i=0; i<AUDIO_BUFSIZE; i++) *dst++ = 0;
 }
 
+static inline void fill(q15 *dst, q15 val){
+	for(int i=0; i<AUDIO_BUFSIZE; i++) *dst++ = val;
+}
+
 static inline void convertAdd(q31 *dst, q15 *src){
 	for(int i=0; i<AUDIO_BUFSIZE; i++) *dst++ += *src++ << 16;
 }

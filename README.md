@@ -6,6 +6,8 @@ The code running in the above video is [this example](https://github.com/deanm12
 
 This is code for creating audio effects on BF70x Blackfin+ DSP chips. A Blackfin+ processor and an I2S DAC are required. This library currently supports both the [AK4558](https://www.akm.com/akm/en/file/datasheet/AK4558EN.pdf) (recommended) and the [ADAU17x1](http://www.analog.com/media/en/technical-documentation/data-sheets/ADAU1761.pdf).
 
+![Alt_text](pedal-pcb.jpg)
+
 Audio buffers are handled via DMA and a callback function is specified when a buffer of data is ready to be processed.
 A simple gain example is shown here:
 

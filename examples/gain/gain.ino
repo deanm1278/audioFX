@@ -1,4 +1,7 @@
 #include "audioFX.h"
+#include "ak4558.h"
+
+ak4558 iface;
 
 /*this function will be called when there is a new buffer of data ready
  * to be processed. Make sure not to block in here!
@@ -13,6 +16,8 @@ void audioLoop(int32_t *data)
 
 // the setup function runs once when you press reset or power the board
 void setup() {
+	iface.begin();
+
 	fx.begin();
 
 	//set the function to be called when a buffer is ready

@@ -8,12 +8,17 @@
 
 #include "ads114s0x.h"
 
-static SPISettings ads114s0x_settings(12000000, MSBFIRST, SPI_MODE1); //this can go as high as 12.5 Mhz (design dependent)
+static SPISettings ads114s0x_settings(12000000, MSBFIRST, SPI_MODE2); //this can go as high as 12.5 Mhz (design dependent)
 
 bool ads114s0x::begin(){
     pinMode(_cs, OUTPUT);
     if(_rdy > -1)
       pinMode(_rdy, INPUT);
+
+    if(_start > -1){
+        pinMode(_start, OUTPUT);
+        digitalWrite(_start, LOW);
+    }
       
     digitalWrite(_cs, HIGH);
     _spi->begin();
@@ -50,12 +55,18 @@ bool ads114s0x::begin(){
 
 int16_t ads114s0x::readChannel(int ch){
   if(ch > -1) setChannel(ch);
-  sendCommand(ADS114S0X_COMMAND_START);
+  if(_start > -1)
+    digitalWrite(_start, HIGH);
+  else
+    sendCommand(ADS114S0X_COMMAND_START);
   return readData(false, true);
 }
 
 void ads114s0x::start(){
-	sendCommand(ADS114S0X_COMMAND_START);
+    if(_start > -1)
+        digitalWrite(_start, HIGH);
+    else
+	    sendCommand(ADS114S0X_COMMAND_START);
 }
 
 void ads114s0x::setChannel(uint8_t ch){
@@ -96,6 +107,8 @@ int ads114s0x::readData(bool byCommand, bool poll){
     if(poll){
     	while(digitalRead(_rdy));
     }
+    if(_start > -1)
+        digitalWrite(_start, LOW);
 
     digitalWrite(_cs, LOW);
     _spi->beginTransaction(ads114s0x_settings);

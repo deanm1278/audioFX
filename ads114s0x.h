@@ -51,7 +51,7 @@ enum {
 
 class ads114s0x {
 public:
-    ads114s0x(int csPin, int rdyPin=-1, SPIClass *spi=&SPI) : _cs(csPin), _spi(spi), _rdy(rdyPin) {
+    ads114s0x(int csPin, int rdyPin=-1, int startPin=-1, SPIClass *spi=&SPI) : _cs(csPin), _spi(spi), _rdy(rdyPin), _start(startPin) {
 
     }
     ~ads114s0x() {}
@@ -68,7 +68,7 @@ public:
     void start();
     
 private:
-    int _cs, _rdy;
+    int _cs, _rdy, _start;
     SPIClass *_spi;
 
     union status {

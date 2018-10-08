@@ -25,13 +25,18 @@
 namespace FX {
 
 static inline void interleave(q31 *x, q31 *left, q31 *right) {
-	for(int __intcount=0; __intcount<AUDIO_BUFSIZE; __intcount++){
+	for(int __dintcount=AUDIO_BUFSIZE; __dintcount>0; __dintcount--){
 		*x++ = *left++; *x++ = *right++; }
 }
 
 static inline void deinterleave(q31 *x, q31 *left, q31 *right) {
-	for(int __dintcount=0; __dintcount<AUDIO_BUFSIZE; __dintcount++){
+	for(int __dintcount=AUDIO_BUFSIZE; __dintcount>0; __dintcount--){
 		*left++ = *x++; *right++ = *x++; }
+}
+
+static inline void deinterleave(q31 *x, q31 *left) {
+	for(int __dintcount=AUDIO_BUFSIZE; __dintcount>0; __dintcount--){
+		*left++ = *x; x += 2; }
 }
 
 static inline void split(q31 *src, q31 *l, q31 *r, q31 lmix, q31 rmix){
@@ -168,7 +173,14 @@ static inline void sum(q15 *dst, q15 *src)
 
 static inline void copy(q31 *dst, q31 *src)
 {
-	for(int i=0; i<AUDIO_BUFSIZE; i++){
+	for(int i=AUDIO_BUFSIZE; i>0; i--){
+		*dst++ = *src++;
+	}
+}
+
+static inline void copy(q31 *dst, q31 *src, uint32_t size)
+{
+	for(int i=size; i>0; i--){
 		*dst++ = *src++;
 	}
 }
@@ -223,6 +235,27 @@ static inline void wetdry(q31 *dst, q31 *src, q31 depth){
 		*dst++ = d;
 	}
 }
+
+static inline q31 wmin(q31 *data, uint32_t size)
+{
+	q31 a = 0;
+	for(int i=0; i<size; i++){
+		q31 d = *data++;
+		a = min(a, d);
+	}
+	return a;
+}
+
+static inline q31 wmax(q31 *data, uint32_t size)
+{
+	q31 a = 0;
+	for(int i=0; i<size; i++){
+		q31 d = *data++;
+		a = max(a, d);
+	}
+	return a;
+}
+
 
 class AudioFX : public I2S
 {

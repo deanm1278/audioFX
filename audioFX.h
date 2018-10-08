@@ -10,7 +10,6 @@
 
 #include "I2S.h"
 #include "dma.h"
-#include "Timer.h"
 #include "mdmaArbiter.h"
 #include "audioFX_config.h"
 #include "utility.h"
@@ -268,7 +267,6 @@ public:
 	void deinterleave(int32_t * left, int32_t *right, int32_t *src);
 	void deinterleave(int32_t * left, int32_t *right, int32_t *src, void (*cb)(void));
 	static void (*audioHook)(int32_t *);
-	static Timer _tmr;
 	static MdmaArbiter _arb;
 };
 

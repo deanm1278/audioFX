@@ -24,9 +24,11 @@ typedef void _twidfftf_q31 (complex_q31 *twiddle_table,
 
 static _twidfftf_q31* twidfftf_q31 = (_twidfftf_q31*)0x0401e3b0;
 
+typedef const complex_q15 _twidfftf_q15_8k_table;
 typedef const complex_q31 _twidfftf_q31_4k_table;
 typedef const complex_q31 _twidfftrad2_q31_4k_table;
 
+static _twidfftf_q15_8k_table* twidfftf_q15_8k_table = (_twidfftf_q15_8k_table*)0x04079800;
 static _twidfftf_q31_4k_table* twidfftf_q31_4k_table = (_twidfftf_q31_4k_table*)0x04073800;
 static _twidfftrad2_q31_4k_table* twidfftrad2_q31_4k_table = (_twidfftrad2_q31_4k_table*)0x04073800;
 
@@ -68,6 +70,15 @@ typedef void _ifftf_q31 (const complex_q31 *input,
 
 static _ifftf_q31* ifftf_q31 = (_ifftf_q31*)0x04019bd4;
 
+
+typedef void _rfftf_q15(const q15 *input,
+			complex_q15 *output,
+			const complex_q15 *twiddle_table,
+			int twiddle_stride, int fft_size);
+
+static _rfftf_q15 *rfftf_q15 = (_rfftf_q15*)0x0401c6e4;
+
+
 /**************************************************************
  *  				END UTILITY ROM FUNCTIONS
  *************************************************************/
@@ -79,7 +90,7 @@ static int block_exponent;
 
 class FFT {
 public:
-	FFT() : tt(twidfftf_q31_4k_table), _fftMax(4*1024) {}
+	FFT() : tt(twidfftf_q31_4k_table), tt16(twidfftf_q15_8k_table), _fftMax(4*1024) {}
 
 	~FFT() {}
 
@@ -130,8 +141,14 @@ public:
 		}
 	}
 
+	//real input 16 bit
+	void rfft_q15(const q15 *in, complex_q15 *out, int size) {
+		rfftf_q15(in, out, tt16, _fftMax*2/size, size);
+	}
+
 private:
 	const complex_q31 *tt;
+	const complex_q15 *tt16;
 	int _fftMax;
 };
 

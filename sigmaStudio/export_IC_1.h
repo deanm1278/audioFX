@@ -19,7 +19,7 @@
 #ifndef __EXPORT_IC_1_H__
 #define __EXPORT_IC_1_H__
 
-#include "export_IC_1_REG.h"
+#include <SigmaStudio/export_IC_1_REG.h>
 
 extern void SIGMA_WRITE_REGISTER_BLOCK(
 		uint16_t  devAddress,

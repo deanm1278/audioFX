@@ -118,12 +118,32 @@ static inline void zero(q15 *dst){
 	for(int i=0; i<AUDIO_BUFSIZE; i++) *dst++ = 0;
 }
 
+static inline void zero(q16 *dst){
+	for(int i=0; i<AUDIO_BUFSIZE; i++) *dst++ = 0;
+}
+
 static inline void fill(q15 *dst, q15 val){
+	for(int i=0; i<AUDIO_BUFSIZE; i++) *dst++ = val;
+}
+
+static inline void fill(q16 *dst, q16 val){
 	for(int i=0; i<AUDIO_BUFSIZE; i++) *dst++ = val;
 }
 
 static inline void convertAdd(q31 *dst, q15 *src){
 	for(int i=0; i<AUDIO_BUFSIZE; i++) *dst++ += *src++ << 16;
+}
+
+static inline void interpolate(q16 *dst, q16 start, q16 end){
+	q16 step = __builtin_bfin_abs_fr1x32(end - start)/AUDIO_BUFSIZE;
+	if(end > start){
+		for(int j=0; j<AUDIO_BUFSIZE; j++) dst[j] = start - (j * step);
+	}
+	else if(end < start){
+		for(int j=0; j<AUDIO_BUFSIZE; j++) dst[j] = start + (j * step);
+	}
+	else
+		fill(dst, end);
 }
 
 static inline void mix(q31 *dst, q31 *src, q31 coeff)

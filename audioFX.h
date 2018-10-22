@@ -114,6 +114,10 @@ static inline void zero(q31 *dst){
 	for(int i=0; i<AUDIO_BUFSIZE; i++) *dst++ = 0;
 }
 
+static inline void zero(q31 *dst, uint32_t size){
+	for(int i=size; i>0; i--) *dst++ = 0;
+}
+
 static inline void zero(q15 *dst){
 	for(int i=0; i<AUDIO_BUFSIZE; i++) *dst++ = 0;
 }
@@ -136,11 +140,21 @@ static inline void convertAdd(q31 *dst, q15 *src){
 
 static inline void interpolate(q16 *dst, q16 start, q16 end){
 	q16 step = __builtin_bfin_abs_fr1x32(end - start)/AUDIO_BUFSIZE;
-	if(end > start){
-		for(int j=0; j<AUDIO_BUFSIZE; j++) dst[j] = start - (j * step);
+	dst[0] = start;
+	if(end < start){
+		q16 z = 0;
+		for(int j=1; j<AUDIO_BUFSIZE; j++){
+			q16 last = dst[j-1];
+			q16 out;
+			__asm__ volatile(
+					"R7 = %1 - %2;		\n"
+					"%0 = MAX(R7, %3);	\n"
+			: "=d"(out) : "d"(last), "d"(step), "d"(z) : "R7");
+			dst[j] = out;
+		}
 	}
-	else if(end < start){
-		for(int j=0; j<AUDIO_BUFSIZE; j++) dst[j] = start + (j * step);
+	else if(end > start){
+		for(int j=1; j<AUDIO_BUFSIZE; j++) dst[j] = start + (j * step);
 	}
 	else
 		fill(dst, end);

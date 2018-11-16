@@ -17,10 +17,8 @@ __delay_push:
 	P4 = R0;
 	R7 = [P4];
 	I0 = R7; //index = line.head
-	P4 += 4;
-	R7 = [P4]; //line.data
-	P4 += 4;
-	R6 = [P4]; //line.size
+	R7 = [P4+4]; //line.data
+	R6 = [P4+8]; //line.size
 	I1 = R1; //buf
 	B1 = R1;
 	L1 = 0;
@@ -99,7 +97,6 @@ __fir:
     I2 = R1; //data will be output here
     B2 = R1;
     L2 = 0;
-    M2 = 4;
 
 	P4 = R0;
 	P3 = R0;
@@ -107,10 +104,8 @@ __fir:
 
 	//load up circular address
 	P4 = R5;
-	P4 += 4;
-	R7 = [P4]; //line.data
-	P4 += 4;
-	R6 = [P4]; //line.size
+	R7 = [P4+4]; //line.data
+	R6 = [P4+8]; //line.size
 
 	B0 = R7; //base = line.data
 	B1 = R7;
@@ -120,45 +115,43 @@ __fir:
     L1 = R6;
 
 	P4 = R0;
-    P4 += 4;
-    R7 = [P4];
+    R7 = [P4+4];
     I0 = R7; //I0 = fir->dptr;
+    I1 = R7; //I1 = fir->dptr;
 
-    P4 += 4;
-    R4 = [P4]; //R4 = fir->coeffs
+    R4 = [P4+8]; //R4 = fir->coeffs
+    I3 = R4;
+    B3 = R4;
 
-    P4 += 4;
-    R7 = [P4]; //R7 = fir->num;
+    R7 = [P4+12]; //R7 = fir->num;
+    R6 = R7 << 2;
+    L3 = R6; // length of coefficient array
 
     M0 = 4; //modifier = sizeof(q31)
     M1 = -4; //modifier1 = -sizeof(q31)
 
+    // load up first values
+	R3 = [I3++M0]; // R3 = first coefficient
+
     LC0 = R2; //num
 	LOOP firLoop LC0;
 	LOOP_BEGIN firLoop;
-		R6 = I0;
-		I1 = R6; //I1 = dptr
+		A1 = A0 = 0 || R5 = [I1++M1]; // R5 = first data value, reset accumulator
 
-		R6 = 0 (X);
-		P2 = R4;
-
-		LC1 = R7; //fir->num
+		LC1 = R7;
 		LOOP firInnerLoop LC1;
 		LOOP_BEGIN firInnerLoop;
-			R5 = [I1++M1] || R3 = [P2];
-			P2 += 4;
-			R2 = R5 * R3;
-			R6 = R6 + R2;
-
+			R6 = ((A1:0) += R5 * R3)(T) || R5 = [I1++M1] || R3 = [I3++M0];
 		LOOP_END firInnerLoop;
 
-		I0 += M0 || [I2++M2] = R6;
+		I0 += M0 || [I2++M0] = R6;
+		R4 = I0; // increment
+		I1 = R4; //I1 = dptr
 	LOOP_END firLoop;
 
 	//save back variables
-    P3 += 4;
     R1 = I0;
-    [P3] = R1; //tap->dptr
+    [P3+4] = R1; //tap->dptr
 
 	( R7:3, P5:2 ) = [ SP ++ ];
 	RTS;

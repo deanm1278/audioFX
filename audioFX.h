@@ -185,9 +185,9 @@ static inline void mix(q31 *dst, q31 *src, q31 *coeff)
 	}
 }
 
-static inline void sum(q31 *dst, q31 *src)
+static inline void sum(q31 *dst, q31 *src, uint32_t len=AUDIO_BUFSIZE)
 {
-	for(int i=0; i<AUDIO_BUFSIZE; i++){
+	for(int i=0; i<len; i++){
 		q31 ret = *src++;
 		q31 d = *dst;
 		__asm__ volatile("%0 = %1 + %2 (S)" : "=d"(ret) : "d"(d), "d"(ret));
@@ -288,7 +288,6 @@ static inline q31 wmax(q31 *data, uint32_t size)
 	}
 	return a;
 }
-
 
 class AudioFX : public I2S
 {

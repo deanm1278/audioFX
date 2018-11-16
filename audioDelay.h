@@ -194,13 +194,13 @@ static inline void setBiquadCoeffs(struct biquad *bq, q28 *coeffs)
 	bq->b2 = *coeffs++;
 }
 
-/* clock cycles ~= AUDIO_BUFSIZE * num_taps * 5.1
- * [FIR (21 taps)] : 14092
+/*
+ * [fir 101 taps 128 samples] : 16143
  */
-static inline void FIRProcess(struct fir *f, q31 *bufIn, q31 *bufOut)
+static inline void FIRProcess(struct fir *f, q31 *bufIn, q31 *bufOut, uint32_t len=AUDIO_BUFSIZE)
 {
-	_delay_push(f->line, bufIn, AUDIO_BUFSIZE);
-	_fir(f, bufOut, AUDIO_BUFSIZE);
+	_delay_push(f->line, bufIn, len);
+	_fir(f, bufOut, len);
 }
 
 static inline void biquadProcess(struct biquad *f, q31 *bufIn, q31 *bufOut)
